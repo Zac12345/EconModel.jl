@@ -4,13 +4,17 @@ using Polynomials
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 
-include("types.jl")
-
+include("markov.jl")
+include("state.jl")
+include("policy.jl")
+include("future.jl")
+include("auxillary.jl")
+include("static.jl")
+include("model.jl")
+include("funcs.jl")
 include("parse.jl")
 include("utils.jl")
 include("optim.jl")
-include("markov.jl")
-include("model.jl")
 include("solve.jl")
 include("adapt.jl")
 # include("tk.jl")

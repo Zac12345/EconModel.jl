@@ -165,47 +165,6 @@ function proot5(f::Function,a::Float64,b::Float64)
     return r[1]
 end
 
-# function ridders(f::Function, a::Real, b::Real;
-#                  maxiter::Integer = 1000, tol::Real = eps(),totcnt::Int64=0)
-
-#     x1 = a;     x2 = b
-#     f1 = f(x1); f2 = f(x2)
-#     if f1 * f2 > 0
-#         # error("f(a) and f(b) must have different signs.")
-#         x = abs(f1) < abs(f2) ? x1 : x2
-#         return (x,totcnt+1)
-#     elseif f1 == 0
-#         return (x1,totcnt+1)
-#     elseif f2 == 0
-#         return (f2,totcnt+1)
-#     end
-
-#     niter = 2
-#     while niter < maxiter && abs(x1 - x2) > tol
-#         xm = (x1 + x2)/2.0
-#         fm = f(xm)
-#         if fm == 0; return xm; end
-
-#         x3 = xm + (xm - x1) * sign(f1 - f2) * fm / sqrt(fm^2 - f1 * f2)
-#         f3 = f(x3)
-#         niter += 2
-#         if f3 == 0; return (x3,totcnt+niter); end
-
-#         if fm * f3 < 0
-#             x1 = xm;  f1 = fm
-#             x2 = x3;  f2 = f3
-#         elseif f1 * f3 < 0
-#             x2 = x3;  f2 = f3
-#         elseif f2 * f3 < 0
-#             x1 = x3;  f1 = f3
-#         else
-#             error("Inform the maintainer: you should never get here.")
-#         end
-#     end
-#     totcnt+=niter
-#     return ((x1 + x2) / 2.0,totcnt)
-# end
-
 function gs_max(fun::Function,A::Float64,D::Float64,iter::Int64 = 50,eps::Float64 = 1e-6)
 	phi = (sqrt(5)-1)/2
 
@@ -241,8 +200,6 @@ function gs_min(fun::Function,A::Float64,D::Float64,iter::Int64 = 50,eps::Float6
 	B=gs_max(fun1,A,D,iter,eps)
 	return B
 end
-
-
 
 function newton(fun::Function, x0::Array{Float64,1}, maxit::Int64=50, eps::Float64=1e-12;retfcnt=false)
 	fcnt  = 0

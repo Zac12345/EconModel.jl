@@ -39,8 +39,6 @@ function basis_func(x::Real,xij::Real,mi::Real)
 	end
 end
 
-
-
 function jac_num_dbl(fun::Function,x0::Vector,eps=1e-12)
 	n = length(x0)
 	jac = zeros(n,n)

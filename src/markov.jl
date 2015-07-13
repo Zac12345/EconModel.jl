@@ -1,3 +1,34 @@
+abstract ExogenousProcess
+type AR <: ExogenousProcess
+  μ::Float64
+  ρ::Float64
+  σ::Float64
+  x::Array{Float64,1}
+  T::Array{Float64,2}
+  function AR(μ,ρ,σ,n)
+    (x,t) = rouwenhorst(μ,ρ,σ,n)
+    new(μ,ρ,σ,[x[:];],t'')
+  end
+end
+
+type Markov <: ExogenousProcess
+  x::Array{Float64,1}
+  T::Array{Float64,2}
+end
+
+function Markov(x::Expr,gtype::Module)
+  ni = length(x.args[2].args[2].args)
+  for i = 1:ni
+    @assert length(x.args[2].args[2].args[i].args) == ni
+  end
+  if length(x.args[2].args[1].args) != 2
+    error("Markov processes can only be specified by end points of grid")
+  end
+
+  return Markov(linspace(x.args[2].args[1].args[1],x.args[2].args[1].args[2],gtype.Mi(x.args[2].args[3]+1)),
+                       Float64[x.args[2].args[2].args[i].args[j] for i = 1:ni,j=1:ni])
+end
+
 function tauchen(mu,rho,sigma,N,m=3)
 	if N==1
 		return mu,1
