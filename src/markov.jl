@@ -117,12 +117,10 @@ function MarkovSim(ID::Vector{Int64},p::Array{Float64})
 end
 
 
-
-
 function MarkovSim(ID::Vector{Int},E::Markov)
   for i = 1:length(E)
     id1 = find(ID.==i)
-    r = linspace(0,1,length(id1))[randperm(length(id1))]
+    r = linspace(0,1,length(id1))[randperm(length(id1));]
     for j = 1:length(r)
       ID[id1[j]]=MarkovSim(ID[id1[j]],E.T,r[j])
     #   ID[id1[j]]=MarkovSim(sub(ID,id1[j]),E.T,r[j])
@@ -132,26 +130,11 @@ function MarkovSim(ID::Vector{Int},E::Markov)
 end
 
 
-
-function  MarkovSetup(E::ExogenousProcess,N::Int)
-  S = diag(E.T^200)
-  nS=int(round(S*N))
-  N-sum(nS)
-  ID = int(vcat([ones(x)*find(x.==nS)[1] for x in nS]...))
-  if length(ID)!=N
-    ID = [ID,int(ones(N-sum(nS))*find(nS.==maximum(nS))[1])]
-  end
-  return ID
-end
-
-# function ARSim(x::Float64,ar::AR)
-#     return clamp(1.0^(1.0-ar.ρ)*x^ar.ρ*exp(randn()*ar.σ),extrema(ar.x))
-# end
-
-
 ARSim(x::Vector{Float64},e::EconModel.AR,s=randn(size(x))) = clamp(x + e.ρ*(e.μ-x)+s*e.σ,minimum(e.x),maximum(e.x))
 ARSim(x::Float64,e::EconModel.AR,s=randn()) = clamp(x + e.ρ*(e.μ-x)+s*e.σ,minimum(e.x),maximum(e.x))
 
 Base.length(mk::Markov) = length(mk.x)
+Base.length(x::AR) = length(x.x)
+
 
 Base.mean(m::ExogenousProcess) = diag(m.T^200)

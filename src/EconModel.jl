@@ -40,7 +40,8 @@ shrink!,
 grow!
 
 
-
+precompile(Model,(Expr,Expr,Expr,Expr,Expr,Expr))
+precompile(solve!,(Model,Int,Float64))
 
 
 end # module

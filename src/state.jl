@@ -1,4 +1,4 @@
-Grids=Union(CurtisClenshaw.Grid,NoBoundary.Grid,Maximum.Grid)
+Grids=Union(CurtisClenshaw.Grid,NoBoundary.Grid,Maximum.Grid,FullLinear.Grid)
 
 type StateVariables
   n::Int64
