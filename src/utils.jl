@@ -16,7 +16,7 @@ end
 function ndgrid{T}(vs::AbstractVector{T}...)
     n = length(vs)
     sz = map(length, vs)
-    out = ntuple(n, i->Array(T, sz))
+    out = ntuple(i->Array(T, sz),n)
     s = 1
     for i=1:n
         a = out[i]::Array
@@ -127,9 +127,16 @@ function getindex(M::Model,x::Symbol)
   end
 end
 
+function getindex(M::EconModel.Model,x::Symbol,i::Float64)
+    if in(x,M.state.names[1:M.state.nendo])
+        return M[x,-1].==i
+    elseif in(x,M.state.names[M.state.nendo+1:end])
+        return M[x,0].==i
+    end
+    return nothing
+end
 
-
-function Base.setindex!(M::Model,x::Vector{Float64},i::Symbol,t::Int)
+function setindex!(M::Model,x::Vector{Float64},i::Symbol,t::Int)
   if in(i,M.policy.names) && t==0
     M.policy.X[:,findfirst(i.==M.policy.names)] = x
   elseif in(i,M.auxillary.names) && t==0

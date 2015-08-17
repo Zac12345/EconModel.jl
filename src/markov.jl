@@ -88,23 +88,11 @@ function cdf_normal(x) :inline
     c = 0.5 * erfc(-x/sqrt(2))
 end
 
-
-
-
-function MarkovSim(id::Int64,p::Array{Float64})
-  id1::Int64
-  tsd = p[id,:][:]
-	cd = cumsum(tsd)
-	id1 = find([cd.>rand();])[1]
-  return id1
-end
-
-
-function MarkovSim(id::Int64,p::Array{Float64},r::Float64)
+function MarkovSim(id::Int64,p::Array{Float64},r::Float64=rand())
   id1::Int64
   tsd = p[id,:][:]
   cd = cumsum(tsd)
-  id1 = find([cd.>=r])[1]
+  id1 = find(cd.>=r)[1]
   return id1
 end
 
@@ -115,7 +103,6 @@ function MarkovSim(ID::Vector{Int64},p::Array{Float64})
   end
   return ID1
 end
-
 
 function MarkovSim(ID::Vector{Int},E::Markov)
   for i = 1:length(E)
@@ -130,8 +117,8 @@ function MarkovSim(ID::Vector{Int},E::Markov)
 end
 
 
-ARSim(x::Vector{Float64},e::EconModel.AR,s=randn(size(x))) = clamp(x + e.ρ*(e.μ-x)+s*e.σ,minimum(e.x),maximum(e.x))
-ARSim(x::Float64,e::EconModel.AR,s=randn()) = clamp(x + e.ρ*(e.μ-x)+s*e.σ,minimum(e.x),maximum(e.x))
+ARSim(x::Vector{Float64},e::EconModel.AR,s=randn(size(x))) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
+ARSim(x::Float64,e::EconModel.AR,s=randn()) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
 
 Base.length(mk::Markov) = length(mk.x)
 Base.length(x::AR) = length(x.x)
