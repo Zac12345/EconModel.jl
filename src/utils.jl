@@ -1,4 +1,4 @@
-ndgrid(v::AbstractVector) = copy(v)
+ndgrid(v::AbstractVector) = (copy(v),)
 
 function ndgrid{T}(v1::AbstractVector{T}, v2::AbstractVector{T})
     m, n = length(v1), length(v2)
@@ -89,15 +89,15 @@ function getindex(M::Model,x::Symbol,i::Int64)
     elseif in(x,M.state.names[M.state.nendo+1:end])
       id = findfirst(x.==M.state.names)
       return M.state.X[:,id]
+    elseif in(x,M.static.names)
+      id=findfirst(x.==M.static.names)
+      return M.static.X[:,id]
     elseif in(x,M.auxillary.names)
       id=findfirst(x.==M.auxillary.names)
       return M.auxillary.X[:,id]
     elseif in(x,M.state.names[1:M.state.nendo])
       id = findfirst(x.==M.state.names)
       return M.future.state[:,id]
-    elseif in(x,M.static.names)
-      id=findfirst(x.==M.static.names)
-      return M.static.X[:,id]
     else
       error("Variable not found")
     end
