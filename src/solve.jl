@@ -49,7 +49,7 @@ function solve!(M::Model,n::Int64,PHI::Float64;
     M.F(M)
     maximum(abs(M.error))<crit*10 ? upf = 1 : nothing
     if maximum(abs(M.error))<crit
-        println(iter,"  Err: ",round(maximum(abs(M.error),1),4),'\t',sum(abs(M.error).>crit)/length(M.error))
+        disp==-1 ? nothing : println(iter,"  Err: ",round(maximum(abs(M.error),1),4),'\t',sum(abs(M.error).>crit)/length(M.error))
         break
     end
     for i = 1:M.state.G.n
@@ -59,7 +59,7 @@ function solve!(M::Model,n::Int64,PHI::Float64;
       @inbounds M.policy.X[i,:] = vec(M.policy.X[i,:])*PHI +  (1-PHI)*x
     end
 
-    if mod(iter,disp) == 0
+    if disp!==-1 && mod(iter,disp) == 0
       println(iter,"  Err: ",round(maximum(abs(M.error),1),4),'\t',sum(abs(M.error).>crit)/length(M.error))
       f()
     end

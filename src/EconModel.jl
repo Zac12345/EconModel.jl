@@ -1,3 +1,4 @@
+__precompile__()
 module EconModel
 using Calculus,SparseGrids
 using Polynomials
@@ -17,6 +18,7 @@ include("utils.jl")
 include("optim.jl")
 include("solve.jl")
 include("adapt.jl")
+include("kf.jl")
 # include("tk.jl")
 
 
@@ -37,7 +39,8 @@ CurtisClenshaw,
 Maximum,
 NoBoundary,
 shrink!,
-grow!
+grow!,
+KolmogorovForward
 
 
 precompile(Model,(Expr,Expr,Expr,Expr,Expr,Expr))
