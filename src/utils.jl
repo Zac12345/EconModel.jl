@@ -75,45 +75,35 @@ function jac_num_bkd(fun::Function,x0::Vector,eps=1e-12)
 end
 
 function getindex(M::Model,x::Symbol,i::Int64)
-  if i == -1
-    if in(x,M.state.names[1:M.state.nendo])
-      id=findfirst(x.==M.state.names[1:M.state.nendo])
-      return M.state.X[:,id]
+    if i == -1
+        if in(x,M.state.names[1:M.state.nendo])
+              id=findfirst(x.==M.state.names[1:M.state.nendo])
+            return M.state.X[:,id]
+        else
+            error("State variable not found")
+        end
+    elseif i==0
+        if in(x,M.policy.names)
+            id=findfirst(x.==M.policy.names)
+            return M.policy.X[:,id]
+        elseif in(x,M.state.names[M.state.nendo+1:end])
+            id = findfirst(x.==M.state.names)
+            return M.state.X[:,id]
+        elseif in(x,M.static.names)
+            id=findfirst(x.==M.static.names)
+            return M.static.X[:,id]
+        elseif in(x,M.auxillary.names)
+            id=findfirst(x.==M.auxillary.names)
+            return M.auxillary.X[:,id]
+        elseif in(x,M.aggregate.names)
+            id=findfirst(x.==M.aggregate.names)
+            return M.aggregate.X[:,id]
+        else
+            error("Variable not found")
+        end
     else
-      error("State variable not found")
+        error("not supported yet")
     end
-  elseif i==0
-    if in(x,M.policy.names)
-      id=findfirst(x.==M.policy.names)
-      return M.policy.X[:,id]
-    elseif in(x,M.state.names[M.state.nendo+1:end])
-      id = findfirst(x.==M.state.names)
-      return M.state.X[:,id]
-    elseif in(x,M.static.names)
-      id=findfirst(x.==M.static.names)
-      return M.static.X[:,id]
-    elseif in(x,M.auxillary.names)
-      id=findfirst(x.==M.auxillary.names)
-      return M.auxillary.X[:,id]
-    elseif in(x,M.state.names[1:M.state.nendo])
-      id = findfirst(x.==M.state.names)
-      return M.future.state[:,id]
-    else
-      error("Variable not found")
-    end
-  elseif i==1
-    if in(x,M.state.names[M.state.nendo+1:end])
-      id = findfirst(x.==M.state.names)
-      return M.future.state[:,id]
-    elseif in(x,M.auxillary.names)
-      id=findfirst(x.==M.auxillary.names)
-      return M.auxillary.XP[:,id]
-    else
-      error("not supported yet")
-    end
-  else
-    error("not supported yet")
-  end
 end
 
 function getindex(M::Model,x::Symbol)
@@ -136,6 +126,8 @@ function getindex(M::EconModel.Model,x::Symbol,i::Float64)
     return nothing
 end
 
+
+
 function setindex!(M::Model,x::Vector{Float64},i::Symbol,t::Int)
   if in(i,M.policy.names) && t==0
     M.policy.X[:,findfirst(i.==M.policy.names)] = x
@@ -147,6 +139,17 @@ function setindex!(M::Model,x::Vector{Float64},i::Symbol,t::Int)
     error("not supported")
   end
 end
+
+function setindex!(M::Model,x::Union{Float64,Vector{Float64}},i::Symbol,t::Int,ii::Union{Int,UnitRange,BitArray})
+  if in(i,M.policy.names) && t==0
+    M.policy.X[ii,findfirst(i.==M.policy.names)] = x
+  elseif in(i,M.auxillary.names) && t==0
+    M.auxillary.X[ii,findfirst(i.==M.auxillary.names)] = x
+  else
+    error("not supported")
+  end
+end
+
 
 
 
@@ -181,6 +184,8 @@ function SparseGrids.interp(M::Model,x::Symbol,X::Array{Float64,2})
     if in(x,M.policy.names)
         i = findfirst(x.==M.policy.names)
         return clamp(interp(X,M.state.G,M[x,0]),M.policy.lb[i],M.policy.ub[i])
+    elseif in(x,M.auxillary.names) || in(x,M.static.names)
+        return interp(X,M.state.G,M[x,0])
     else
         return interp(X,M.state.G,M[x,0])
     end

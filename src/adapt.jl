@@ -16,29 +16,6 @@ function shrink!(M::Model,id::Vector{Bool})
     params = deepcopy(M.meta.parameters)
     static = deepcopy(M.meta.static)
 
-    # params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
-    # subs!(foc,params)
-    # addindex!(foc)
-    # subs!(static,params)
-    # addindex!(static)
-    # for i = 1:length(static.args)
-    #     d=Dict(zip([x.args[1] for x in static.args[1:i]],[x.args[2] for x in static.args[1:i]]))
-    #     for j = i+1:length(static.args)
-    #         subs!(static.args[j],d)
-    #     end
-    # end
-    # for i = 1:length(static.args)
-    #     push!(static.args,tchange!(copy(static.args[i]),1))
-    # end
-    # static = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
-    # subs!(foc,static)
-    #
-    #
-    # M.policy                 = PolicyVariables(M.meta.policy,M.state)
-    # M.future                 = FutureVariables(foc,M.meta.auxillary,M.state)
-    # M.auxillary              = AuxillaryVariables(M.meta.auxillary,M.state,M.future)
-
-
 
     params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
     subs!(foc,params)
@@ -142,7 +119,7 @@ function Base.setindex!(M::Model,val::Float64,x::Symbol)
     M.future                 = FutureVariables(foc,M.meta.auxillary,M.state)
 
 
-  variablelist = getMnames(allvariables,M.state,M.policy,M.future,M.auxillary)
+  variablelist = getMnames(allvariables,M.state,M.policy,M.future,M.auxillary,M.aggregate)
 
   for i = 1:length(aux.args)
     if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])

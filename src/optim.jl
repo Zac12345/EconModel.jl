@@ -1,45 +1,47 @@
-function bisection(
-  F::Function,        # The function for which a zero is sought
-  x0::Float64,        # The left endpoint of an interval containing the zero
-  x1::Float64,        # The right endpoint of an interval containing the zero
-  tolerance::Float64=1e-10,
-  ITER::Int64=100)
+function bisection(F::Function,x0::Float64, x1::Float64,tolerance::Float64=1e-8,ITER::Int64=100;track::Bool = false)
+    tracker  = Float64[]
+    fx0 = F(x0)
+    fx1 = F(x1)
+    if fx0 * fx1 > 0
+        warn("Root not bracketed")
+        x = linspace(x0,x1,25)
+        fx = zeros(25)
+        fx[1] = fx0
+        fx[5] = fx1
+        for i = 2:25
+            fx[i]=F(x[i])
+        end
+        xmid =x[abs(fx).==minimum(abs(fx))]
+        return xmid[1]
+    else
+        if abs(fx0) <= tolerance
+            return x0
+        elseif abs(fx1) <= tolerance
+            return x1
+        end
 
-	fx0 = F(x0)
-	fx1 = F(x1)
-  if fx0 * fx1 > 0
-    x = linspace(x0,x1,25)
-    fx = zeros(25)
-    fx[1] = fx0
-    fx[5] = fx1
-    for i = 2:25
-      fx[i]=F(x[i])
+        xmid = (x0 + x1) * 0.5
+        fxmid = F(xmid)
+        track ? push!(tracker,xmid) : nothing
+        iter = 0
+        while (abs(fxmid) > tolerance) && (iter < ITER)
+            iter += 1
+            if sign(fxmid) == sign(fx0)
+                (x0, fx0) = (xmid, fxmid)
+            else
+                (x1, fx1) = (xmid, fxmid)
+            end
+            xmid = (x0 + x1) * 0.5
+            track ? push!(tracker,xmid) : nothing
+            fxmid = F(xmid)
+        end
+        xmid
     end
-    xmid =x[abs(fx).==minimum(abs(fx))]
-    return xmid[1]
-  else
-    if abs(fx0) <= tolerance
-      return x0
-    elseif abs(fx1) <= tolerance
-      return x1
+    if track
+        tracker
+    else
+        return xmid[1]
     end
-
-    xmid = (x0 + x1) * 0.5
-    fxmid = F(xmid)
-    iter = 0
-    while (abs(fxmid) > tolerance) && (iter < ITER)
-      iter += 1
-      if sign(fxmid) == sign(fx0)
-        (x0, fx0) = (xmid, fxmid)
-      else
-        (x1, fx1) = (xmid, fxmid)
-      end
-      xmid = (x0 + x1) * 0.5
-      fxmid = F(xmid)
-    end
-    xmid
-  end
-  return xmid[1]
 end
 
 function boxmin(f::Function,x,l,u,dx=1.0,ddx = 1.0,itlim=100,track = false)
@@ -96,7 +98,7 @@ end
 
 
 function ridders(f::Function, a::Real, b::Real;
-				 maxiter::Integer = 1000, tol::Real = eps())
+				 maxiter::Integer = 1000, tol::Real = 1e-7)
 
 	x1 = a;     x2 = b
 	f1 = f(x1); f2 = f(x2)

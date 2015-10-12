@@ -157,56 +157,60 @@ end
 
 getexpectation(x,list,ieq::Int64) = x,list
 
-function getMnames(vlist::Array{Any,1},State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables)
+function getMnames(vlist::Array{Any,1},State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables)
 
-  V = Array(Any,length(vlist)+Future.n,3)
+    V = Array(Any,length(vlist)+Future.n,3)
 
-  for i = 1:length(vlist)
-    v= vlist[i]
-    V[i,1] = Expr(:ref,v[1],v[2])
-    if in(v[1],Auxillary.names) && v[2] ==0
-      id = findfirst(v[1].==Auxillary.names)
+    for i = 1:length(vlist)
+        v= vlist[i]
+        V[i,1] = Expr(:ref,v[1],v[2])
+        if in(v[1],Auxillary.names) && v[2] ==0
+            id = findfirst(v[1].==Auxillary.names)
+            V[i,2] = :(M.auxillary.X[i,$(id)])
+            V[i,3] = parse("A$id")
 
-      V[i,2] = :(M.auxillary.X[i,$(id)])
-      V[i,3] = parse("A$id")
+        elseif in(v[1],Auxillary.names) && v[2] ==1
+            id = findfirst(v[1].==Auxillary.names)
+            V[i,2] = :(M.auxillary.XP[i+(j-1)*M.state.G.n,$(id)])
+            V[i,3] = parse("AP$id")
 
-    elseif in(v[1],Auxillary.names) && v[2] ==1
-      id = findfirst(v[1].==Auxillary.names)
+        elseif in(v[1],Aggregate.names) && v[2] ==0
+            id = findfirst(v[1].==Aggregate.names)
+            V[i,2] = :(M.aggregate.X[i,$(id)])
+            V[i,3] = parse("Ag$id")
 
-      V[i,2] = :(M.auxillary.XP[i+(j-1)*M.state.G.n,$(id)])
-      V[i,3] = parse("AP$id")
+        elseif in(v[1],Aggregate.names) && v[2] ==1
+            id = findfirst(v[1].==Aggregate.names)
+            V[i,2] = :(M.aggregate.XP[i+(j-1)*M.state.G.n,$(id)])
+            V[i,3] = parse("AgP$id")
 
-    elseif (in(v[1],State.names[1:State.nendo]) && v[2]==-1) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==0)
-      id = findfirst(v[1].==State.names)
+        elseif (in(v[1],State.names[1:State.nendo]) && v[2]==-1) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==0)
+            id = findfirst(v[1].==State.names)
+            V[i,2] = :(M.state.X[i,$(id)])
+            V[i,3] = parse("S$id")
 
-      V[i,2] = :(M.state.X[i,$(id)])
-      V[i,3] = parse("S$id")
+        elseif in(v[1],Policy.names) && v[2]==0
+            id = findfirst(v[1].==Policy.names)
+            V[i,2] = :(M.policy.X[i,$(id)])
+            V[i,3] = parse("U$id")
 
-    elseif in(v[1],Policy.names) && v[2]==0
-      id = findfirst(v[1].==Policy.names)
+        elseif in(v[1],Policy.names) && v[2]==1
+            id = findfirst(v[1].==Future.names)
+            V[i,2] = :(M.future.X[i+(j-1)*M.state.G.n,$(id)])
+            V[i,3] = parse("UP$id")
 
-      V[i,2] = :(M.policy.X[i,$(id)])
-      V[i,3] = parse("U$id")
+        elseif (in(v[1],State.names[1:State.nendo]) && v[2]==0) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==1)
+            id = findfirst(v[1].==State.names)
+            V[i,2] = :(M.future.state[i+(j-1)*M.state.G.n,$(id)])
+            V[i,3] = parse("SP$id")
 
-    elseif in(v[1],Policy.names) && v[2]==1
-      id = findfirst(v[1].==Future.names)
-
-      V[i,2] = :(M.future.X[i+(j-1)*M.state.G.n,$(id)])
-      V[i,3] = parse("UP$id")
-
-    elseif (in(v[1],State.names[1:State.nendo]) && v[2]==0) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==1)
-      id = findfirst(v[1].==State.names)
-
-      V[i,2] = :(M.future.state[i+(j-1)*M.state.G.n,$(id)])
-      V[i,3] = parse("SP$id")
-
-    else
-      error("variable: $v is unclassifiable")
+        else
+            error("variable: $v is unclassifiable")
+        end
     end
-  end
 
-  for i = 1:Future.n
-    V[length(vlist)+i,:] = [:(Expect($(Future.loc[i]))) :(M.future.E[i,$i]) parse("E$i") ]
-  end
-  V
+    for i = 1:Future.n
+        V[length(vlist)+i,:] = [:(Expect($(Future.loc[i]))) :(M.future.E[i,$i]) parse("E$i") ]
+    end
+    V
 end

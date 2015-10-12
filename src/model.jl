@@ -6,6 +6,7 @@ type ModelMeta
   policy::Expr
   static::Expr
   auxillary::Expr
+  aggregate::Expr
 end
 
 type Model
@@ -17,8 +18,10 @@ type Model
   future::FutureVariables
   static::StaticVariables
   auxillary::AuxillaryVariables
+  aggregate::AggregateVariables
   error::Array{Float64,2}
   meta::ModelMeta
+  # D
 end
 
 
@@ -32,7 +35,7 @@ function show(io::IO,M::Model)
 end
 
 
-function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Expr,aux=:[];gtype=CurtisClenshaw)
+function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Expr,aux=:[],agg=:[];gtype=CurtisClenshaw)
 
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
 
@@ -43,7 +46,8 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                                         deepcopy(exogenous),
                                         deepcopy(policy),
                                         deepcopy(static),
-                                        deepcopy(aux))
+                                        deepcopy(aux),
+                                        deepcopy(agg))
 
     State                  = StateVariables(endogenous,exogenous,gtype)
     Policy                 = PolicyVariables(policy,State)
@@ -71,15 +75,18 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
     allvariables            = unique(getv(foc,Any[]))
     Future                  = FutureVariables(foc,aux,State)
     Auxillary               = AuxillaryVariables(aux,State,Future)
+    Aggregate               = AggregateVariables(agg,State,Future,Policy)
 
-    variablelist            = getMnames(allvariables,State,Policy,Future,Auxillary)
+    variablelist            = getMnames(allvariables,State,Policy,Future,Auxillary,Aggregate)
 
 
 
     for i = 1:length(aux.args)
         if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])
+            warn("Added $(aux.args[i].args[1]) to variable list")
             x = copy(aux.args[i].args[1])
-            x = addindex(x,iglist)
+            # x = addindex!(x,iglist)
+            x = addindex!(x)
             x = hcat(x,:(M.auxillary.X[i,$i]),symbol("A$i"))
             variablelist = vcat(variablelist,x)
         end
@@ -87,8 +94,9 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
 
     for i = State.nendo+1:State.n
         if !in(State.names[i],[x.args[1] for x in variablelist[:,1]])
+            warn("Added $(State.names[i]) to variable list")
             x = Expr(:ref,State.names[i],0)
-            x = hcat(x,:(M.state.G.grid[i,$i]),symbol("S$i"))
+            x = hcat(x,:(M.state.X[i,$i]),symbol("S$i"))
             variablelist = vcat(variablelist,x)
         end
     end
@@ -101,7 +109,6 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
     Jarg                    = Expr(:call,Jname,Expr(:(::),:M,:Model),Expr(:(::),:i,:Int64))
     Static                  = StaticVariables(static,variablelist,State)
 
-
   return Model(eval(Ffunc),
                eval(:($Jarg = $(j))),
                eval(Efunc),
@@ -110,10 +117,10 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                Future,
                Static,
                Auxillary,
+               Aggregate,
                zeros(State.G.n,Policy.n),
                meta)
 end
-
 
 
 
@@ -128,8 +135,8 @@ function steadystate(foc::Expr,params::Expr,static1::Expr,exogenous::Expr)
     push!(ignorelist,p)
   end
 
-  addindex(static,ignorelist)
-  addindex(SS,ignorelist)
+  addindex!(static,ignorelist)
+  addindex!(SS,ignorelist)
 
   # get static variables
   for i = 1:length(static.args)

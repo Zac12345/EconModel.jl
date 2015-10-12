@@ -26,5 +26,6 @@ function StaticVariables(static,variablelist,State)
 
     Sname = symbol("S"*string(round(Int,rand()*100000)))
     Sarg = Expr(:call,Sname,Expr(:(::),:M,:Model))
+
     Static = StaticVariables(length(snames),Symbol[removeindex!(x) for x in snames],eval(:($Sarg = $(bigS))),zeros(State.G.n,length(snames)),static)
 end
