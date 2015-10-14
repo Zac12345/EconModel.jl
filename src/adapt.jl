@@ -112,23 +112,26 @@ function Base.setindex!(M::Model,val::Float64,x::Symbol)
     for i = 1:length(static.args)
         push!(static.args,tchange!(copy(static.args[i]),1))
     end
-    static = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
+
+    staticvars              = filter(x->!in(x[1],[x.args[1].args[1] for x in static.args]) ,unique(getv(static,Any[])))
+
+    static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
     subs!(foc,static)
 
-    allvariables = unique(getv(foc,Any[]))
+    allvariables            = unique(vcat(unique(getv(foc,Any[])),staticvars))
     M.future                 = FutureVariables(foc,M.meta.auxillary,M.state)
 
 
-  variablelist = getMnames(allvariables,M.state,M.policy,M.future,M.auxillary,M.aggregate)
+    variablelist = getMnames(allvariables,M.state,M.policy,M.future,M.auxillary,M.aggregate)
 
-  for i = 1:length(aux.args)
-    if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])
-      x = copy(aux.args[i].args[1])
-      x = addindex!(x)
-      x = hcat(x,:(M.auxillary.X[i,$i]),symbol("A$i"))
-      variablelist = vcat(variablelist,x)
+    for i = 1:length(aux.args)
+        if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])
+            x = copy(aux.args[i].args[1])
+            x = addindex!(x)
+            x = hcat(x,:(M.auxillary.X[i,$i]),symbol("A$i"))
+            variablelist = vcat(variablelist,x)
+        end
     end
-  end
 
   for i = M.state.nendo+1:M.state.n
     if !in(M.state.names[i],[x.args[1] for x in variablelist[:,1]])

@@ -41,7 +41,7 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
 
 
     meta                   = ModelMeta(deepcopy(foc),
-                                        params,
+                                        deepcopy(params),
                                         deepcopy(endogenous),
                                         deepcopy(exogenous),
                                         deepcopy(policy),
@@ -49,13 +49,13 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                                         deepcopy(aux),
                                         deepcopy(agg))
 
-    State                  = StateVariables(endogenous,exogenous,gtype)
-    Policy                 = PolicyVariables(policy,State)
+    State                   = StateVariables(endogenous,exogenous,gtype)
+    Policy                  = PolicyVariables(policy,State)
 
-    params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
+    params                  = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
     subs!(foc,params)
-    addindex!(foc)
     subs!(static,params)
+    addindex!(foc)
     addindex!(static)
 
     for i = 1:length(static.args)
@@ -68,11 +68,12 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
         push!(static.args,tchange!(copy(static.args[i]),1))
     end
 
-    static = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
+    staticvars              = filter(x->!in(x[1],[x.args[1].args[1] for x in static.args]) ,unique(getv(static,Any[])))
+    static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
     subs!(foc,static)
 
 
-    allvariables            = unique(getv(foc,Any[]))
+    allvariables            = unique(vcat(unique(getv(foc,Any[])),staticvars))
     Future                  = FutureVariables(foc,aux,State)
     Auxillary               = AuxillaryVariables(aux,State,Future)
     Aggregate               = AggregateVariables(agg,State,Future,Policy)
@@ -83,18 +84,18 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
 
     for i = 1:length(aux.args)
         if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])
-            warn("Added $(aux.args[i].args[1]) to variable list")
+            warn("Added $(aux.args[i].args[1]) to variable list") # this may no longer be hit ever
             x = copy(aux.args[i].args[1])
             # x = addindex!(x,iglist)
             x = addindex!(x)
             x = hcat(x,:(M.auxillary.X[i,$i]),symbol("A$i"))
             variablelist = vcat(variablelist,x)
         end
-    end
+    end 
 
     for i = State.nendo+1:State.n
         if !in(State.names[i],[x.args[1] for x in variablelist[:,1]])
-            warn("Added $(State.names[i]) to variable list")
+            warn("Added $(State.names[i]) to variable list") # this may no longer be hit ever
             x = Expr(:ref,State.names[i],0)
             x = hcat(x,:(M.state.X[i,$i]),symbol("S$i"))
             variablelist = vcat(variablelist,x)

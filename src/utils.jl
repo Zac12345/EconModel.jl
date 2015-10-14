@@ -1,3 +1,7 @@
+import Base.length
+import SparseGrids.interp
+length(M::Model) = M.state.G.n
+
 ndgrid(v::AbstractVector) = (copy(v),)
 
 function ndgrid{T}(v1::AbstractVector{T}, v2::AbstractVector{T})
@@ -107,14 +111,14 @@ function getindex(M::Model,x::Symbol,i::Int64)
 end
 
 function getindex(M::Model,x::Symbol)
-  if in(x,M.state.names[1+M.state.nendo:end])
-    id = findfirst(x.==M.state.names[1+M.state.nendo:end])
-    return M.state.exog[id]
-  elseif in(x,M.state.names[1:M.state.nendo])
-    return sort(unique(M[x,-1]))
-  elseif in(x, [x.args[1] for x in M.meta.parameters.args])
-    return genlist(M.meta.parameters,Any,Any)[x]
-  end
+    if in(x,M.state.names[1:M.state.nendo])
+        return sort(unique(M[x,-1]))
+    elseif in(x,M.state.names[1+M.state.nendo:end])
+        id = findfirst(x.==M.state.names[1+M.state.nendo:end])
+        return M.state.exog[id]
+    elseif in(x, [x.args[1] for x in M.meta.parameters.args])
+        return genlist(M.meta.parameters,Any,Any)[x]
+    end
 end
 
 function getindex(M::EconModel.Model,x::Symbol,i::Float64)
@@ -193,10 +197,6 @@ end
 
 
 
-Base.length(M::Model) = M.state.G.n
-
-
-
 function Expect(M::Model,x::Symbol)
   xP = zeros(length(M))
   getfuture(M)
@@ -209,7 +209,6 @@ function Expect(M::Model,x::Symbol)
   end
   return xP
 end
-
 
 function nn(x::Array{Float64},grid::Array{Float64})
   id = zeros(size(x,1))

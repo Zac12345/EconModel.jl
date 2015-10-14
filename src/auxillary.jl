@@ -13,7 +13,7 @@ function AuxillaryVariables(aux::Expr,State::StateVariables,Future::FutureVariab
     XP = zeros(State.G.n*Future.nP,length(aux.args))
 
     for i = 1:length(aux.args)
-        X[:,i] = aux.args[i].args[2]
+        X[:,i] = aux.args[i].args[2].args[1]
         # XP[:,i] = aux.args[i].args[2].args[2]
     end
     AuxillaryVariables(length(aux.args),
