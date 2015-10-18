@@ -49,6 +49,7 @@ export  ARSim,
         ∫,
         load,
         updateaggregate!,
+        updateaggregatevariables!,
         updatedistribution!,
         updatetransition!
 

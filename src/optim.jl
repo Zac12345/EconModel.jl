@@ -116,20 +116,24 @@ function ridders(f::Function, a::Real, b::Real;
 	while niter < maxiter && abs(x1 - x2) > tol
 		xm = (x1 + x2)/2.0
 		fm = f(xm)
-		if fm == 0; return xm; end
+		abs(fm) < tol ? (return xm) : nothing
 
 		x3 = xm + (xm - x1) * sign(f1 - f2) * fm / sqrt(fm^2 - f1 * f2)
 		f3 = f(x3)
 		niter += 2
-		if f3 == 0; return x3; end
+		abs(f3) < tol ? (return x3) : nothing
 
 		if fm * f3 < 0
-			x1 = xm;  f1 = fm
-			x2 = x3;  f2 = f3
+			x1 = xm
+            f1 = fm
+			x2 = x3
+            f2 = f3
 		elseif f1 * f3 < 0
-			x2 = x3;  f2 = f3
+			x2 = x3
+            f2 = f3
 		elseif f2 * f3 < 0
-			x1 = x3;  f1 = f3
+			x1 = x3
+            f1 = f3
 		else
 			error("Inform the maintainer: you should never get here.")
 		end

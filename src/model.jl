@@ -1,27 +1,26 @@
 type ModelMeta
-  foc::Expr
-  parameters::Expr
-  endogenous::Expr
-  exogenous::Expr
-  policy::Expr
-  static::Expr
-  auxillary::Expr
-  aggregate::Expr
+    foc::Expr
+    parameters::Expr
+    endogenous::Expr
+    exogenous::Expr
+    policy::Expr
+    static::Expr
+    auxillary::Expr
+    aggregate::Expr
 end
 
 type Model
-  F::Function
-  J::Function
-  E::Function
-  state::StateVariables
-  policy::PolicyVariables
-  future::FutureVariables
-  static::StaticVariables
-  auxillary::AuxillaryVariables
-  aggregate::AggregateVariables
-  error::Array{Float64,2}
-  meta::ModelMeta
-  # D
+    F::Function
+    J::Function
+    E::Function
+    state::StateVariables
+    policy::PolicyVariables
+    future::FutureVariables
+    static::StaticVariables
+    auxillary::AuxillaryVariables
+    aggregate::AggregateVariables
+    error::Array{Float64,2}
+    meta::ModelMeta
 end
 
 
@@ -40,7 +39,7 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
 
 
-    meta                   = ModelMeta(deepcopy(foc),
+    meta                    = ModelMeta(deepcopy(foc),
                                         deepcopy(params),
                                         deepcopy(endogenous),
                                         deepcopy(exogenous),
@@ -86,12 +85,11 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
         if !in(aux.args[i].args[1],[x.args[1] for x in variablelist[:,1]])
             warn("Added $(aux.args[i].args[1]) to variable list") # this may no longer be hit ever
             x = copy(aux.args[i].args[1])
-            # x = addindex!(x,iglist)
             x = addindex!(x)
             x = hcat(x,:(M.auxillary.X[i,$i]),symbol("A$i"))
             variablelist = vcat(variablelist,x)
         end
-    end 
+    end
 
     for i = State.nendo+1:State.n
         if !in(State.names[i],[x.args[1] for x in variablelist[:,1]])

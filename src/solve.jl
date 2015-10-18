@@ -59,7 +59,7 @@ function solve!(M::Model,
 
     for iter = 1:n
         maximum(abs(M.error))<crit*10 ? upf = 1 : nothing
-        (mod(iter,upag)==0 || maximum(abs(M.error))<crit) && M.aggregate.n>0  &&  upag != -1 ? (updatetransition!(M);updatedistribution!(M);updateaggregate!(M,Φ)) : nothing
+        (mod(iter,upag)==0 || maximum(abs(M.error))<crit) && M.aggregate.n>0  &&  upag != -1 ? (updatetransition!(M);updatedistribution!(M);updateaggregatevariables!(M,Φ)) : nothing
         (mod(iter,upf)==0 ||iter <4) ? (getfuture(M);updatefutureauxillary(M);updatefutureaggregate(M)) : nothing
 
         M.E(M)
@@ -72,8 +72,7 @@ function solve!(M::Model,
 
         for i = 1:M.state.G.n
             x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
-            x = max(M.policy.lb,x)
-            x = min(M.policy.ub,x)
+            x = min(M.policy.ub,max(M.policy.lb,x))
             @inbounds M.policy.X[i,:] = vec(M.policy.X[i,:])*ϕ +  (1-ϕ)*x
         end
 

@@ -32,7 +32,7 @@ function updatetransition!(M::Model)
         brackets = ntuple(ip->findbracket(Pf[ip][i],M.aggregate.g[ip]),M.state.nendo)
         ei = [findfirst(M.aggregate.G[M.state.nendo+ie][i].==M.aggregate.g[M.state.nendo+ie]) for ie = 1:M.state.nexog]
         abrackets = kron(brackets...)
-        w = spzeros(ntuple(i->length(M.aggregate.g[i]),M.state.nendo)...)
+        w = zeros(ntuple(i->length(M.aggregate.g[i]),M.state.nendo)...)
         for b in abrackets
             w[Tuple(b.i)...]+=b.w
         end
@@ -101,7 +101,7 @@ end
 # end
 
 
-function updateaggregate!(M::Model,ϕ=0.0)
+function updateaggregatevariables!(M::Model,ϕ=0.0)
     if any(M.aggregate.isag)
         for i = 1:M.aggregate.n
             v = M.aggregate.target[i]
@@ -130,4 +130,11 @@ function setaggregate!(M::Model,V::Symbol,ag::Vector{Float64})
         id=BitArray(.*([M[eag[ie],0].==X[ie][ii] for ie = 1:length(eag)]...))
         M[V,0,id]=ag[ii]*ones(sum(id))
     end
+end
+
+function updateaggregate!(M,Φ=0.0)
+    updatetransition!(M)
+    updatedistribution!(M)
+    updateaggregatevariables!(M,Φ)
+    return nothing
 end
