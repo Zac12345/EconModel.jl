@@ -7,7 +7,7 @@ type StaticVariables
   list::Dict
 end
 
-function StaticVariables(static,variablelist,State)
+function StaticVariables(static,variablelist,State::StateVariables)
     for k in keys(static)
         if k.args[2]==1
             pop!(static,k)

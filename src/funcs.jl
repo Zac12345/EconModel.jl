@@ -15,8 +15,9 @@ function buildE(Future::FutureVariables,variablelist)
 
       Ename = symbol("E"*string(round(Int,rand()*100000)))
       Earg = Expr(:call,Ename,Expr(:(::),:M,:Model))
-      
-      return :($Earg = $(bigE))
+
+    #   return :($Earg = $(bigE))
+      return :(@fastmath $Earg = $(bigE))
 end
 
 function buildF(foc::Expr,variablelist)
@@ -29,7 +30,8 @@ function buildF(foc::Expr,variablelist)
 
     Fname = symbol("F"*string(round(Int,rand()*100000)))
     Farg = Expr(:call,Fname,Expr(:(::),:M,:Model))
-    return :($Farg = $(bigF))
+    # return :($Farg = $(bigF))
+    return :(@fastmath $Farg = $(bigF))
 end
 
 
@@ -57,4 +59,26 @@ function buildJ(foc::Expr,variablelist,Policy::PolicyVariables)
   end
   push!(bigJ.args,Expr(:return,:j1))
   return bigJ
+end
+
+function buildS(static,variablelist,State::StateVariables)
+    for k in keys(static)
+        if k.args[2]==1
+            pop!(static,k)
+        end
+    end
+    snames = collect(keys(static))
+
+    bigS  =   Expr(:for,:(i = 1:M.state.G.n),Expr(:block))
+    for i = 1:length(snames)
+        s = snames[i]
+        targ = static[s]
+        subs!(targ,genlist(variablelist[:,1],variablelist[:,2]))
+        push!(bigS.args[2].args,:(M.static.X[i,$i] = $targ))
+    end
+
+    Sname = symbol("S"*string(round(Int,rand()*100000)))
+    Sarg = Expr(:call,Sname,Expr(:(::),:M,:Model))
+    # return :($Sarg =$(bigS))
+    return :(@fastmath $Sarg =$(bigS))
 end

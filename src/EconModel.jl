@@ -1,6 +1,6 @@
 __precompile__()
 module EconModel
-using Calculus,SparseGrids,Polynomials,JLD
+using Calculus,SparseGrids,Polynomials#,JLD
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 
@@ -20,7 +20,7 @@ include("optim.jl")
 include("solve.jl")
 include("adapt.jl")
 # include("kf.jl")
-include("store.jl")
+# include("store.jl")
 # include("tk.jl")
 
 

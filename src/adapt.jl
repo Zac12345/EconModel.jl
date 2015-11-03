@@ -9,8 +9,18 @@ end
 
 function shrink!(M::Model,id::Vector{Bool})
     oldpolicy = M.policy.X[id,:]
+    oldagg = M.aggregate.X[id,:]
     SparseGrids.shrink!(M.state.G,id)
     M.state.X=M.state.X[id,:]
+
+    for ie = 1:M.state.nexog
+        if length(unique(M.state.X[:,M.state.nendo+ie]))!=length(M.state.exog[ie].x)
+            idex = Bool[in(x,unique(M.state.X[:,M.state.nendo+ie])) for x in M.state.exog[ie].x]
+            M.state.exog[ie].x = M.state.exog[ie].x[idex]
+            M.state.exog[ie].T = M.state.exog[ie].T[idex,idex]
+            @assert all(sum(M.state.exog[ie].T,2).==1.0) "Changing of grid has caused transition matrix of $(M.state.names[M.state.nendo+ie]) to no longer be complete"
+        end
+    end
 
     foc = deepcopy(M.meta.foc)
     params = deepcopy(M.meta.parameters)
@@ -36,15 +46,20 @@ function shrink!(M::Model,id::Vector{Bool})
     static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
     subs!(foc,static)
     allvariables            = unique(getv(foc,Any[]))
-    M.policy                 = PolicyVariables(M.meta.policy,M.state)
+    M.policy                = PolicyVariables(M.meta.policy,M.state)
     M.future                = FutureVariables(foc,M.meta.auxillary,M.state)
-    Auxillary               = AuxillaryVariables(M.meta.auxillary,M.state,M.future)
+    M.auxillary             = AuxillaryVariables(M.meta.auxillary,M.state,M.future)
+    M.aggregate             = AggregateVariables(M.meta.aggregate,M.state,M.future,M.policy)
 
 
     M.static.X               = zeros(M.state.G.n,M.static.n)
     M.static.sget(M)
     M.error                  = M.error[id,:]
     M.policy.X[:] = oldpolicy
+    M.aggregate.X = oldagg
+
+
+
     return
 end
 
@@ -78,6 +93,7 @@ function EconModel.grow!(M::Model,id,bounds::Vector{Int})
     M.policy                 = PolicyVariables(M.meta.policy,M.state)
     M.future                 = FutureVariables(foc,M.meta.auxillary,M.state)
     M.auxillary              = AuxillaryVariables(M.meta.auxillary,M.state,M.future)
+    M.aggregate               = AggregateVariables(M.meta.aggregate,M.state,M.future,M.policy)
     M.static.X               = zeros(M.state.G.n,M.static.n)
     M.static.sget(M)
     M.error                  = zeros(M.state.G.n,M.policy.n)

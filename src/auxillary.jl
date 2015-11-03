@@ -1,4 +1,4 @@
-
+    
 type AuxillaryVariables
     n::Int64
     names::Array{Symbol,1}

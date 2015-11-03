@@ -23,7 +23,7 @@ function StateVariables(endogenous::Expr,exogenous::Expr,gtype::Module)
   exog = Array(ExogenousProcess,nexog)
   for i = 1:nexog
     if length(exogenous.args[i].args[2].args)==4
-      nex = gtype.Mi(exogenous.args[i].args[2].args[4]+1)
+      nex = gtype.M(exogenous.args[i].args[2].args[4]+1)
       exog[i]=AR(exogenous.args[i].args[2].args[1],
                  exogenous.args[i].args[2].args[2],
                  exogenous.args[i].args[2].args[3],
@@ -31,8 +31,8 @@ function StateVariables(endogenous::Expr,exogenous::Expr,gtype::Module)
 
     elseif length(exogenous.args[i].args[2].args)==3
       exog[i] = Markov(exogenous.args[i],gtype)
-      @assert length(exog[i].x)==gtype.Mi(1+exogenous.args[i].args[2].args[3]) "Markov process size does not match grid suggestion for exog[$i]"
-      @assert size(exog[i].T,1)==gtype.Mi(1+exogenous.args[i].args[2].args[3]) "Markov transition matrix does not match grid suggestion for exog[$i]"
+      @assert length(exog[i].x)==gtype.M(1+exogenous.args[i].args[2].args[3]) "Markov process size does not match grid suggestion for exog[$i]"
+      @assert size(exog[i].T,1)==gtype.M(1+exogenous.args[i].args[2].args[3]) "Markov transition matrix does not match grid suggestion for exog[$i]"
     else
       error("Wrong format for exogenous process")
     end

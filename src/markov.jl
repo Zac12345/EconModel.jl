@@ -25,7 +25,7 @@ function Markov(x::Expr,gtype::Module)
     error("Markov processes can only be specified by end points of grid")
   end
 
-  return Markov(linspace(x.args[2].args[1].args[1],x.args[2].args[1].args[2],gtype.Mi(x.args[2].args[3]+1)),
+  return Markov(linspace(x.args[2].args[1].args[1],x.args[2].args[1].args[2],gtype.M(x.args[2].args[3]+1)),
                        Float64[x.args[2].args[2].args[i].args[j] for i = 1:ni,j=1:ni])
 end
 

@@ -7,20 +7,22 @@ type ModelMeta
     static::Expr
     auxillary::Expr
     aggregate::Expr
+    funcs
 end
 
 type Model
-    F::Function
-    J::Function
-    E::Function
-    state::StateVariables
-    policy::PolicyVariables
-    future::FutureVariables
-    static::StaticVariables
-    auxillary::AuxillaryVariables
     aggregate::AggregateVariables
+    auxillary::AuxillaryVariables
+    future::FutureVariables
+    policy::PolicyVariables
+    state::StateVariables
+    static::StaticVariables
     error::Array{Float64,2}
     meta::ModelMeta
+    F::Function
+    E::Function
+    J::Function
+    S::Function
 end
 
 
@@ -46,7 +48,8 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                                         deepcopy(policy),
                                         deepcopy(static),
                                         deepcopy(aux),
-                                        deepcopy(agg))
+                                        deepcopy(agg),
+                                        [])
 
     State                   = StateVariables(endogenous,exogenous,gtype)
     Policy                  = PolicyVariables(policy,State)
@@ -107,18 +110,21 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
     Jname                   = symbol("J"*string(round(Int,rand()*100000)))
     Jarg                    = Expr(:call,Jname,Expr(:(::),:M,:Model),Expr(:(::),:i,:Int64))
     Static                  = StaticVariables(static,variablelist,State)
+    Sfunc                    = buildS(static,variablelist,State)
+    [push!(meta.funcs,v) for v in [Efunc;Ffunc;j;Sfunc]]
 
-  return Model(eval(Ffunc),
-               eval(:($Jarg = $(j))),
-               eval(Efunc),
-               State,
-               Policy,
-               Future,
-               Static,
-               Auxillary,
-               Aggregate,
-               zeros(State.G.n,Policy.n),
-               meta)
+    return Model(Aggregate,
+                Auxillary,
+                Future,
+                Policy,
+                State,
+                Static,
+                ones(State.G.n,Policy.n),
+                meta,
+                eval(Ffunc),
+                eval(Efunc),
+                eval(:(@fastmath $Jarg = $(j))),
+                x->x)
 end
 
 

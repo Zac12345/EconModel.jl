@@ -36,7 +36,7 @@ function updatefutureauxillary(M::Model)
 end
 
 function updatefutureaggregate(M::Model)
-    for i = 1:M.auxillary.n
+    for i = 1:M.aggregate.n
         @inbounds M.aggregate.XP[:,i]=interp(M,M.aggregate.names[i],M.future.state)
     end
 end
@@ -58,26 +58,47 @@ function solve!(M::Model,
                 f::Tuple{Int,Function}=(1000000,f()=nothing))
 
     for iter = 1:n
-        maximum(abs(M.error))<crit*10 ? upf = 1 : nothing
-        (mod(iter,upag)==0 || maximum(abs(M.error))<crit) && M.aggregate.n>0  &&  upag != -1 ? (updatetransition!(M);updatedistribution!(M);updateaggregatevariables!(M,Φ)) : nothing
-        (mod(iter,upf)==0 ||iter <4) ? (getfuture(M);updatefutureauxillary(M);updatefutureaggregate(M)) : nothing
+        if maximum(abs(M.error))<crit*10
+            upf = 1
+        end
+        if (mod(iter,upag)==0 || maximum(abs(M.error))<crit) && M.aggregate.n>0  &&  upag != -1
+            updatetransition!(M)
+            updatedistribution!(M)
+            updateaggregatevariables!(M,Φ)
+        end
 
-        M.E(M)
-        M.F(M)
+        getfuture(M)
+        updatefutureauxillary(M)
+        updatefutureaggregate(M)
+
+
+
+
 
         if maximum(abs(M.error))<crit && iter>mn
-            disp==-1 ? nothing : printerr(M,iter,crit)
+            upag!=-1 ? updateaggregate!(M) : nothing
+            disp!=-1 ? printerr(M,iter,crit) : nothing
+            M.static.sget(M)
             break
         end
-
-        for i = 1:M.state.G.n
-            x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
-            x = min(M.policy.ub,max(M.policy.lb,x))
-            @inbounds M.policy.X[i,:] = vec(M.policy.X[i,:])*ϕ +  (1-ϕ)*x
+        for ii = 1:upf
+            M.E(M)
+            M.F(M)
+            for i = 1:M.state.G.n
+                x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
+                @simd for j = 1:M.policy.n
+                    @inbounds M.policy.X[i,j] *= ϕ
+                    @inbounds M.policy.X[i,j] += (1-ϕ)*clamp(x[j],M.policy.lb[j],M.policy.ub[j])
+                end
+            end
         end
 
-        disp!==-1 && mod(iter,disp) == 0    ? printerr(M,iter,crit) : nothing
-        mod(iter,f[1]) == 0                 ? f[2]() : nothing
+        if disp!==-1 && mod(iter,disp) == 0
+            printerr(M,iter,crit)
+        end
+        if mod(iter,f[1]) == 0
+            f[2]()
+        end
     end
     M.static.sget(M)
 end
