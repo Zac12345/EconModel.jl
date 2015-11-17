@@ -63,7 +63,7 @@ function shrink!(M::Model,id::Vector{Bool})
     return
 end
 
-function EconModel.grow!(M::Model,id,bounds::Vector{Int})
+function grow!(M::Model,id,bounds::Vector{Int})
     oldM = deepcopy(M)
     SparseGrids.grow!(M.state.G,id,bounds)
     M.state.X=values(M.state.G)

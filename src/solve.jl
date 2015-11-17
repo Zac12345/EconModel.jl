@@ -41,7 +41,7 @@ function updatefutureaggregate(M::Model)
     end
 end
 
-printerr(M::Model,iter,crit) = println(iter,"  Err: ",round(maximum(abs(M.error),1),4),'\t',sum(abs(M.error).>crit)/length(M.error))
+printerr(M::Model,iter,crit) = println(iter,"  Err: ",round(maximum(log10(abs(M.error)),1),0),'\t',sum(abs(M.error).>crit)/length(M.error))
 
 
 
@@ -70,10 +70,6 @@ function solve!(M::Model,
         getfuture(M)
         updatefutureauxillary(M)
         updatefutureaggregate(M)
-
-
-
-
 
         if maximum(abs(M.error))<crit && iter>mn
             upag!=-1 ? updateaggregate!(M) : nothing

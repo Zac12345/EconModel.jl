@@ -36,19 +36,11 @@ function updatetransition!(M::Model)
         brackets = ntuple(ip->findbracket(Pf[ip][i],M.aggregate.g[ip]),M.state.nendo)
         ei = [findfirst(M.aggregate.G[M.state.nendo+ie][i].==M.aggregate.g[M.state.nendo+ie]) for ie = 1:M.state.nexog]
         abrackets = kron(brackets...)
-        # w = zeros(ntuple(i->length(M.aggregate.g[i]),M.state.nendo)...)
+
         w = spzeros(pdims1)
         for b in abrackets
-            # w[Tuple(b.i)...]+=b.w
             w[sub2ind(dims1,Tuple(b.i)...)]+=b.w
         end
-        # for ie = 1:M.state.nexog
-        #     if M.aggregate.isag[ie]
-        #             w = vcat([w[:]*p for p in M[M.state.names[M.state.nendo+ie]].T[:,ei[ie]]]...)
-        #     else
-        #         w = vcat([w[:]*p for p in M[M.state.names[M.state.nendo+ie]].T[ei[ie],:]]...)
-        #     end
-        # end
         for ie = 1:M.state.nexog
             if M.aggregate.isag[ie]
                     w = vcat([w[:]*p for p in M[M.state.names[M.state.nendo+ie]].T[:,ei[ie]]]...)
@@ -56,7 +48,6 @@ function updatetransition!(M::Model)
                 w = vcat([w[:]*p for p in M[M.state.names[M.state.nendo+ie]].T[ei[ie],:]]...)
             end
         end
-        # M.aggregate.T[:,i] = w
         @inbounds for j = 1:length(w.nzind)
             M.aggregate.T[w.nzind[j],i] += w.nzval[j]
         end
@@ -76,7 +67,7 @@ function updatedistribution!(M::Model)
     end
 
     M.aggregate.d[:] = d0
-    M.aggregate.dG = d0[[findfirst((prod(M.state.X[i,:].==hcat([vec(x) for x in M.aggregate.G]...),2))) for i = 1:length(M)]]
+    M.aggregate.dG = d0[[findfirst((prod(M.state.X[i,:]'.==hcat([vec(x) for x in M.aggregate.G]...),2))) for i = 1:length(M)]]
     return nothing
 end
 
@@ -98,7 +89,6 @@ function ∫(M::Model,v::Symbol)
         D= zeros(size(M.aggregate.d,id...))
         for i = 1:prod(size(D))
             id1 = ind2sub(size(D),i)
-            # inds=Any[(in(ii,id) ? id1[ii-sum(!M.aggregate.isag)-M.state.nendo] : Colon()) for ii = 1:M.state.n]
             inds = Any[Colon() for i = 1:M.state.n]
             cnt = 1
             for ii = 1:M.state.n
