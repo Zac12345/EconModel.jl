@@ -7,9 +7,9 @@ function SparseGrids.getW(M::Model,v::UnitRange{Int}=1:M.policy.n)
 end
 
 
-function shrink!(M::Model,id::Vector{Bool})
+function shrink!(M::Model,id::Vector{Int})
     oldpolicy = M.policy.X[id,:]
-    oldagg = M.aggregate.X[id,:]
+    M.aggregate.n >0 ? oldagg = M.aggregate.X[id,:] : nothing
     SparseGrids.shrink!(M.state.G,id)
     M.state.X=M.state.X[id,:]
 
@@ -56,10 +56,7 @@ function shrink!(M::Model,id::Vector{Bool})
     M.static.sget(M)
     M.error                  = M.error[id,:]
     M.policy.X[:] = oldpolicy
-    M.aggregate.X = oldagg
-
-
-
+    M.aggregate.n >0 ?  M.aggregate.X = oldagg : nothing
     return
 end
 

@@ -19,11 +19,9 @@ function AggregateVariables(agg::Expr,State::StateVariables,Future::FutureVariab
         return AggregateVariables()
     end
     if isa(agg.args[1],Symbol) || agg.args[1].head==:tuple
-        # warn("Agg warn")
         isag= zeros(Bool,State.n)
         alist = isa(agg.args[1],Symbol) ? [agg.args[1]] : agg.args[1].args
         for a in alist
-            # in(a,State.names[1:State.nendo]) ? error("Endogenous state variable chosen as aggregate") : nothing
             isag[find(a.==State.names)] = true
         end
         nag = length(agg.args)-1
@@ -31,9 +29,10 @@ function AggregateVariables(agg::Expr,State::StateVariables,Future::FutureVariab
         isag= zeros(Bool,State.n)
         nag = length(agg.args)
     end
-    # isag = isag[State.nendo+1:end]
 
-    g   = [sort(unique(State.X[:,i])) for i = 1:State.n]
+
+    # g   = [sort(unique(State.X[:,i])) for i = 1:State.n]
+    g   = [SparseGrids.CurtisClenshaw.UtoX(SparseGrids.CurtisClenshaw.Xi(maximum(State.G.index[:,i])),State.G.bounds[:,i])  for i = 1:State.n]
     G   = ndgrid(g...)
     d   = zeros(size(G[1]))+1/length(G[1])
     dG  = zeros(State.G.n)+1/State.G.n

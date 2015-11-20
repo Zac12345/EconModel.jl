@@ -11,9 +11,7 @@ convert(::Type{Tuple},x::Vector{Int})=ntuple(i->x[i],length(x))
 
 kron(a::Array{brack,1})= a
 
-# spzeros(n::Int) = spzeros(n,1)
 spzeros(n::Int) = SparseVector(n,Int[],Float64[])
-
 
 function findbracket(v,x::Vector)
     i=searchsortedfirst(x,v)
@@ -140,6 +138,7 @@ end
 
 
 function updateaggregate!(M,Φ=0.0)
+    M.aggregate.n == 0 ? (warn("No aggregate variables");return) : nothing
     updatetransition!(M)
     updatedistribution!(M)
     updateaggregatevariables!(M,Φ)
