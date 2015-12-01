@@ -116,8 +116,8 @@ function getindex(M::Model,x::Symbol)
     elseif in(x,M.state.names[1+M.state.nendo:end])
         id = findfirst(x.==M.state.names[1+M.state.nendo:end])
         return M.state.exog[id]
-    elseif in(x, [x.args[1] for x in M.meta.parameters.args])
-        return genlist(M.meta.parameters,Any,Any)[x]
+    elseif in(x, keys(M.meta.parameters))
+        return M.meta.parameters[x]
     end
 end
 

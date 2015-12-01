@@ -1,3 +1,4 @@
+
 function getfuture(M::Model)
     for i = 1:M.state.nendo
         if in(M.state.names[i],M.policy.names)
@@ -29,21 +30,8 @@ function getfuture(M::Model)
     end
 end
 
-function updatefutureauxillary(M::Model)
-    for i = 1:M.auxillary.n
-        @inbounds M.auxillary.XP[:,i]=interp(M,M.auxillary.names[i],M.future.state)
-    end
-end
-
-function updatefutureaggregate(M::Model)
-    for i = 1:M.aggregate.n
-        @inbounds M.aggregate.XP[:,i]=interp(M,M.aggregate.names[i],M.future.state)
-    end
-end
 
 printerr(M::Model,iter,crit) = println(iter,"  Err: ",round(maximum(log10(abs(M.error)),1),0),'\t',sum(abs(M.error).>crit)/length(M.error))
-
-
 
 
 function solve!(M::Model,
@@ -52,7 +40,7 @@ function solve!(M::Model,
                 crit::Float64=1e-6,
                 mn::Int=1,
                 disp::Int=div(n,10),
-                upf::Int=4,
+                upf::Int=2,
                 upag::Int=500,
                 Φ::Float64=0.0,
                 f::Tuple{Int,Function}=(1000000,f()=nothing))
@@ -62,19 +50,14 @@ function solve!(M::Model,
             upf = 1
         end
         if (mod(iter,upag)==0 || maximum(abs(M.error))<crit) && M.aggregate.n>0  &&  upag != -1
-            updatetransition!(M)
-            updatedistribution!(M)
-            updateaggregatevariables!(M,Φ)
+            updateaggregate!(M,Φ)
         end
 
         getfuture(M)
-        updatefutureauxillary(M)
-        updatefutureaggregate(M)
 
         if maximum(abs(M.error))<crit && iter>mn
             upag!=-1 ? updateaggregate!(M) : nothing
             disp!=-1 ? printerr(M,iter,crit) : nothing
-            M.static.sget(M)
             break
         end
         for ii = 1:upf
@@ -98,34 +81,3 @@ function solve!(M::Model,
     end
     M.static.sget(M)
 end
-
-#
-# type ModelCrit
-#     iter::Int
-#     crit::Float64
-#     min::Int
-#     max::Int
-#     ϵ::Float64
-#     ϕ::Float64
-#     delay::Int
-# end
-# ModelCrit(max::Int,ϕ::Float64,ϵ::Float64 = 1e-6,min::Int = 0,up=4) = ModelCrit(0,1.0,min,max,ϵ,ϕ,up)
-#
-#
-# function solveA!(M::Model,I,A)
-#     while (I.crit > I.ϵ) && (I.iter ≤ I.max)
-#         I.iter+=1
-#
-#         (mod(I.up,I.iter)==0) || (I.iter<10) ?        (getfuture(M);updatefutureauxillary(M);updatefutureaggregate(M)) : nothing
-#
-#         M.E(M)
-#         M.F(M)
-#
-#         for i = 1:M.state.G.n
-#             x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
-#             x = max(M.policy.lb,x)
-#             x = min(M.policy.ub,x)
-#             @inbounds M.policy.X[i,:] = vec(M.policy.X[i,:])*I.ϕ +  (1-I.ϕ)*x
-#         end
-#     end
-# end

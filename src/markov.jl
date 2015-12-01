@@ -1,5 +1,5 @@
-abstract ExogenousProcess
-type AR <: ExogenousProcess
+abstract StochasticProcess
+type AR <: StochasticProcess
   μ::Float64
   ρ::Float64
   σ::Float64
@@ -11,7 +11,7 @@ type AR <: ExogenousProcess
   end
 end
 
-type Markov <: ExogenousProcess
+type Markov <: StochasticProcess
   x::Array{Float64,1}
   T::Array{Float64,2}
 end
@@ -124,4 +124,4 @@ Base.length(mk::Markov) = length(mk.x)
 Base.length(x::AR) = length(x.x)
 
 
-Base.mean(m::ExogenousProcess) = diag(m.T^200)
+Base.mean(m::StochasticProcess) = diag(m.T^200)

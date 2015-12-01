@@ -7,7 +7,8 @@ operators = [:-
             :log
             :Expect
             :max
-            :min]
+            :min
+            :∫]
 
 function differentiate(::SymbolParameter{:max}, args, wrt)
   return Expr(:if,:($(args[1])>$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
@@ -16,9 +17,17 @@ function differentiate(::SymbolParameter{:min}, args, wrt)
   return Expr(:if,:($(args[1])<$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
 end
 
-function genlist(list,a,b)
+function genlist(list::Expr,a,b)
   d = Dict{a,b}()
   for p in list.args
+    merge!(d,Dict(p.args[1]=>p.args[2]))
+  end
+  return d
+end
+
+function genlist(list::Vector,a,b)
+  d = Dict{a,b}()
+  for p in list
     merge!(d,Dict(p.args[1]=>p.args[2]))
   end
   return d
@@ -157,60 +166,40 @@ end
 
 getexpectation(x,list,ieq::Int64) = x,list
 
-function getMnames(vlist::Array{Any,1},State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables)
 
-    V = Array(Any,length(vlist)+Future.n,3)
+function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables)
 
-    for i = 1:length(vlist)
-        v= vlist[i]
-        V[i,1] = Expr(:ref,v[1],v[2])
-        if in(v[1],Auxillary.names) && v[2] ==0
-            id = findfirst(v[1].==Auxillary.names)
-            V[i,2] = :(M.auxillary.X[i,$(id)])
-            V[i,3] = parse("A$id")
+    vlist = vcat([[Expr(:ref,State.names[i],-1) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = 1:State.nendo]...)
 
-        elseif in(v[1],Auxillary.names) && v[2] ==1
-            id = findfirst(v[1].==Auxillary.names)
-            V[i,2] = :(M.auxillary.XP[i+(j-1)*M.state.G.n,$(id)])
-            V[i,3] = parse("AP$id")
+    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],0) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = State.nendo+1:State.n]...))
 
-        elseif in(v[1],Aggregate.names) && v[2] ==0
-            id = findfirst(v[1].==Aggregate.names)
-            V[i,2] = :(M.aggregate.X[i,$(id)])
-            V[i,3] = parse("Ag$id")
+    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*M.state.G.n),i) Symbol("Sp$i")] for i = State.nendo+1:State.n]...))
 
-        elseif in(v[1],Aggregate.names) && v[2] ==1
-            id = findfirst(v[1].==Aggregate.names)
-            V[i,2] = :(M.aggregate.XP[i+(j-1)*M.state.G.n,$(id)])
-            V[i,3] = parse("AgP$id")
+    vlist = vcat(vlist,vcat([[Expr(:ref,Policy.names[i],0) Expr(:ref,:(M.policy.X),:i,i) Symbol("U$i")] for i = 1:Policy.n]...))
 
-        elseif (in(v[1],State.names[1:State.nendo]) && v[2]==-1) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==0)
-            id = findfirst(v[1].==State.names)
-            V[i,2] = :(M.state.X[i,$(id)])
-            V[i,3] = parse("S$id")
+    Auxillary.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Auxillary.names[i],0) Expr(:ref,:(M.auxillary.X),:i,i) Symbol("A$i")] for i = 1:Auxillary.n]...)) : nothing
 
-        elseif in(v[1],Policy.names) && v[2]==0
-            id = findfirst(v[1].==Policy.names)
-            V[i,2] = :(M.policy.X[i,$(id)])
-            V[i,3] = parse("U$id")
+    Aggregate.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Aggregate.names[i],0) Expr(:ref,:(M.aggregate.X),:i,i) Symbol("Ag$i")] for i = 1:Aggregate.n]...)) : nothing
 
-        elseif in(v[1],Policy.names) && v[2]==1
-            id = findfirst(v[1].==Future.names)
-            V[i,2] = :(M.future.X[i+(j-1)*M.state.G.n,$(id)])
-            V[i,3] = parse("UP$id")
+    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*M.state.G.n),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
 
-        elseif (in(v[1],State.names[1:State.nendo]) && v[2]==0) || (in(v[1],State.names[State.nendo+1:end]) && v[2]==1)
-            id = findfirst(v[1].==State.names)
-            V[i,2] = :(M.future.state[i+(j-1)*M.state.G.n,$(id)])
-            V[i,3] = parse("SP$id")
+    vlist=vcat(vlist,vcat([[Expr(:call,:Expect,Future.loc[i]) Expr(:ref,:(M.future.E),:i,i) Symbol("E$i")] for i = 1:length(Future.loc)]...))
+    return vlist
+end
 
-        else
-            error("variable: $v is unclassifiable")
+
+function getslist(static,plist)
+    subs!(static,plist)
+    addindex!(static)
+    for i = 1:length(static.args)
+        d=Dict(zip([x.args[1] for x in static.args[1:i]],[x.args[2] for x in static.args[1:i]]))
+        for j = i+1:length(static.args)
+            subs!(static.args[j],d)
         end
     end
-
-    for i = 1:Future.n
-        V[length(vlist)+i,:] = [:(Expect($(Future.loc[i]))) :(M.future.E[i,$i]) parse("E$i") ]
+    for i = 1:length(static.args)
+        push!(static.args,tchange!(copy(static.args[i]),1))
     end
-    V
+    static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
+    return static
 end

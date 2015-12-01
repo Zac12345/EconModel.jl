@@ -3,7 +3,6 @@ type AggregateVariables
     n::Int64
     names::Array{Symbol,1}
     X::Array{Float64}
-    XP::Array{Float64}
     target::Vector{Symbol}
     isag::Vector{Bool}
     d::Array{Float64}
@@ -12,7 +11,7 @@ type AggregateVariables
     G
     T::SparseMatrixCSC
 end
-AggregateVariables() = AggregateVariables(0,Symbol[],Float64[],Float64[],Symbol[],Bool[],Float64[],Float64[],nothing,nothing,spzeros(0,0))
+AggregateVariables() = AggregateVariables(0,Symbol[],Float64[],Symbol[],Bool[],Float64[],Float64[],nothing,nothing,spzeros(0,0))
 
 function AggregateVariables(agg::Expr,State::StateVariables,Future::FutureVariables,Policy::PolicyVariables)
     if agg == :[]
@@ -39,16 +38,13 @@ function AggregateVariables(agg::Expr,State::StateVariables,Future::FutureVariab
     T   = spzeros(length(d),length(d))
 
     X   = zeros(State.G.n,nag)
-    XP  = zeros(State.G.n*Future.nP,nag)
 
     for i = 1:length(agg.args)-any(isag)
         X[:,i] = agg.args[i+any(isag)].args[2].args[2]
-        XP[:,i] = agg.args[i+any(isag)].args[2].args[2]
     end
     AggregateVariables(length(agg.args)-any(isag),
                         Symbol[x.args[1] for x in agg.args[1+any(isag):end]],
                         X,
-                        XP,
                         Symbol[x.args[2].args[1] for x in agg.args[1+any(isag):end]],
                         isag,
                         d,

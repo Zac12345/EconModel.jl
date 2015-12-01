@@ -57,7 +57,7 @@ function updatedistribution!(M::Model)
     d0 = M.aggregate.d[:]
     for j = 1:5000
         d1=M.aggregate.T*d0
-        mean(abs((d1[:]-d0[:])))<1e-18 ? break : nothing
+        mean(abs((d1[:]-d0[:])))<1e-10 ? break : nothing
         d0[:]=d1[:]/sum(d1)
         if j==5000
             warn("Model distribution did not converge")
@@ -67,6 +67,33 @@ function updatedistribution!(M::Model)
     M.aggregate.d[:] = d0
     M.aggregate.dG = d0[[findfirst((prod(M.state.X[i,:]'.==hcat([vec(x) for x in M.aggregate.G]...),2))) for i = 1:length(M)]]
     return nothing
+end
+
+function ∫(M::Model,v::Vector{Float64})
+    @assert length(v) == length(M)
+
+    V = reshape(interp(hcat([vec(x) for x in M.aggregate.G]...),M.state.G,v),size(M.aggregate.G[1]))
+    d = V.*M.aggregate.d
+    if all(!M.aggregate.isag)
+        return sum(d)
+    else
+        id = (1:M.state.n)[M.aggregate.isag]
+        D= zeros(size(M.aggregate.d,id...))
+        for i = 1:prod(size(D))
+            id1 = ind2sub(size(D),i)
+            inds = Any[Colon() for i = 1:M.state.n]
+            cnt = 1
+            for ii = 1:M.state.n
+                if M.aggregate.isag[ii]
+                    inds[ii] = id1[cnt]
+                    cnt+=1
+                end
+            end
+
+            D[id1...] = sum(d[inds...])/max(sum(M.aggregate.d[inds...]),1e-16)
+        end
+        return D
+    end
 end
 
 
