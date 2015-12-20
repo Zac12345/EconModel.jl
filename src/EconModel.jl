@@ -1,6 +1,6 @@
 __precompile__()
 module EconModel
-using Calculus,SparseGrids,Polynomials#,JLD
+using Calculus,SparseGrids,Polynomials,Base.Threads
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 

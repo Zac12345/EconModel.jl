@@ -187,7 +187,7 @@ end
 function SparseGrids.interp(M::Model,x::Symbol,X::Array{Float64,2})
     if in(x,M.policy.names)
         i = findfirst(x.==M.policy.names)
-        return clamp(interp(X,M.state.G,M[x,0]),M.policy.lb[i],M.policy.ub[i])
+        return clamp!(interp(X,M.state.G,M[x,0]),M.policy.lb[i],M.policy.ub[i])
     elseif in(x,M.auxillary.names) || in(x,M.static.names)
         return interp(X,M.state.G,M[x,0])
     else

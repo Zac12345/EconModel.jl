@@ -48,8 +48,6 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;gtype
             push!(aux.args,vars.args[i])
         elseif isa(vars.args[i].args[2],Expr)
             if (vars.args[i].args[2].args[1] == :∫)
-                # x=:($(vars.args[i].args[1]) = $(vars.args[i].args[2].args[2]))
-                # push!(agg.args,Expr(:(=),vars.args[i].args[1],:($(vars.args[i].args[2].args[2]),$(vars.args[i].args[2].args[3]))))
                 if isa(vars.args[i].args[2].args[2],Expr)
                     sname = gensym(vars.args[i].args[1])
                     push!(static.args,:($sname = $(vars.args[i].args[2].args[2])))
@@ -94,7 +92,6 @@ end
 function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux,agg,gtype)
 
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
-
 
     meta                    = ModelMeta(deepcopy(foc),
                                         deepcopy(params),
