@@ -173,7 +173,7 @@ function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVa
 
     vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],0) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = State.nendo+1:State.n]...))
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*M.state.G.n),i) Symbol("Sp$i")] for i = State.nendo+1:State.n]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i) Symbol("Sp$i")] for i = State.nendo+1:State.n]...))
 
     vlist = vcat(vlist,vcat([[Expr(:ref,Policy.names[i],0) Expr(:ref,:(M.policy.X),:i,i) Symbol("U$i")] for i = 1:Policy.n]...))
 
@@ -181,7 +181,7 @@ function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVa
 
     Aggregate.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Aggregate.names[i],0) Expr(:ref,:(M.aggregate.X),:i,i) Symbol("Ag$i")] for i = 1:Aggregate.n]...)) : nothing
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*M.state.G.n),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
 
     vlist=vcat(vlist,vcat([[Expr(:call,:Expect,Future.loc[i]) Expr(:ref,:(M.future.E),:i,i) Symbol("E$i")] for i = 1:length(Future.loc)]...))
     return vlist

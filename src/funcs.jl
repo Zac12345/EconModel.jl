@@ -1,5 +1,5 @@
 function buildE(Future::FutureVariables,vlist)
-    bigE=    Expr(:for,:(i = 1:M.state.G.n),
+    bigE=    Expr(:for,:(i = 1:length(M.state.G)),
                  Expr(:block,:(M.future.E[i,:]=0.0),
                       Expr(:for,:(j=1:M.future.nP),Expr(:block)
                            )
@@ -18,7 +18,7 @@ function buildE(Future::FutureVariables,vlist)
 end
 
 function buildF(foc::Expr,vlist)
-    bigF = Expr(:for,:(i=1:M.state.G.n),Expr(:block))
+    bigF = Expr(:for,:(i=1:length(M.state.G)),Expr(:block))
     ftarg = deepcopy(foc)
     subs!(ftarg,genlist(vlist[:,1],vlist[:,2]))
     for i = 1:length(ftarg.args)
@@ -63,7 +63,7 @@ function buildS(static,vlist,State::StateVariables)
     end
     snames = collect(keys(static))
 
-    bigS  =   Expr(:for,:(i = 1:M.state.G.n),Expr(:block))
+    bigS  =   Expr(:for,:(i = 1:length(M.state.G)),Expr(:block))
     for i = 1:length(snames)
         s = snames[i]
         targ = static[s]

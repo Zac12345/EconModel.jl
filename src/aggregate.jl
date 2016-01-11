@@ -31,13 +31,13 @@ function AggregateVariables(agg::Expr,State::StateVariables,Future::FutureVariab
 
 
     # g   = [sort(unique(State.X[:,i])) for i = 1:State.n]
-    g   = [SparseGrids.CurtisClenshaw.UtoX(SparseGrids.CurtisClenshaw.Xi(maximum(State.G.index[:,i])),State.G.bounds[:,i])  for i = 1:State.n]
+    g   = [SparseGrids.UtoX(CC.g(Int(maximum(State.G.index[:,i]))),State.G.bounds[:,i])  for i = 1:State.n]
     G   = ndgrid(g...)
     d   = zeros(size(G[1]))+1/length(G[1])
-    dG  = zeros(State.G.n)+1/State.G.n
+    dG  = zeros(length(State.G))+1/length(State.G)
     T   = spzeros(length(d),length(d))
 
-    X   = zeros(State.G.n,nag)
+    X   = zeros(length(State.G),nag)
 
     for i = 1:length(agg.args)-any(isag)
         X[:,i] = agg.args[i+any(isag)].args[2].args[2]

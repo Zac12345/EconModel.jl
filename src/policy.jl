@@ -4,8 +4,9 @@ type PolicyVariables
     X::Array{Float64,2}
     lb::Array{Float64,1}
     ub::Array{Float64,1}
+
     function PolicyVariables(policy::Expr,State::StateVariables)
-        U = zeros(State.G.n,length(policy.args))
+        U = zeros(length(State.G),length(policy.args))
         for i = 1:length(policy.args)
             if isa(policy.args[i].args[2].args[3],Number)
                 U[:,i] = policy.args[i].args[2].args[3]

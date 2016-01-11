@@ -1,6 +1,6 @@
 import Base.length
 import SparseGrids.interp
-length(M::Model) = M.state.G.n
+length(M::Model) = length(M.state.G)
 
 ndgrid(v::AbstractVector) = (copy(v),)
 
@@ -32,17 +32,6 @@ function ndgrid{T}(vs::AbstractVector{T}...)
     out
 end
 
-
-function basis_func(x::Real,xij::Real,mi::Real)
-	if (mi==1)
-		return 1.0
-	elseif (abs(x-xij)<(1.0/(mi-1.0)))
-		return (1.0-((mi)-1.0)*abs(x-xij))
-	else
-		return 0.0
-	end
-end
-
 function jac_num_dbl(fun::Function,x0::Vector,eps=1e-12)
 	n = length(x0)
 	jac = zeros(n,n)
@@ -53,7 +42,6 @@ function jac_num_dbl(fun::Function,x0::Vector,eps=1e-12)
 	end
 	return jac
 end
-
 
 function jac_num_fwd(fun::Function,x0::Vector,eps=1e-12)
 	n = length(x0)
@@ -121,7 +109,7 @@ function getindex(M::Model,x::Symbol)
     end
 end
 
-function getindex(M::EconModel.Model,x::Symbol,i::Float64)
+function getindex(M::Model,x::Symbol,i::Float64)
     if in(x,M.state.names[1:M.state.nendo])
         return M[x,-1].==i
     elseif in(x,M.state.names[M.state.nendo+1:end])
@@ -170,7 +158,7 @@ clamp(x::AbstractArray,X::AbstractArray) = clamp(x,extrema(X))
 function checkbounds(M::Model)
   id = Array(Bool,size(M.policy.X))
   for j = 1:M.policy.n
-    for i = 1:M.state.G.n
+    for i = 1:length(M.state.G)
       id[i,j] = (abs(M.policy.lb[j] - M.policy.X[i,j])<1e-12) || (abs(M.policy.ub[j] - M.policy.X[i,j])<1e-12)
     end
   end
@@ -202,9 +190,9 @@ function Expect(M::Model,x::Symbol)
   getfuture(M)
 
   X = interp(M.future.state,M.state.G,M[x,0])
-  for i = 1:M.state.G.n
+  for i = 1:length(M.state.G)
     for j = 1:M.future.nP
-      xP[i] += X[i + (j - 1) * M.state.G.n] * M.future.P[i,j]
+      xP[i] += X[i + (j - 1) * length(M.state.G)] * M.future.P[i,j]
     end
   end
   return xP

@@ -1,4 +1,3 @@
-
 type FutureVariables
   n::Int64
   nP::Int64
@@ -12,17 +11,16 @@ type FutureVariables
 end
 
 function FutureVariables(foc::Expr,aux::Expr,State::StateVariables)
-
     temp1 = ndgrid(ntuple(i->State.exog[i].x,State.nexog)...)
     if typeof(temp1)==Array{Float64,1}
         temp1= (temp1,)
     end
-    exogenousfuture = ntuple(i->repmat(temp1[i][:]',State.G.n,1),State.nexog)
+    exogenousfuture = ntuple(i->repmat(temp1[i][:]',length(State.G),1),State.nexog)
 
     nexog2=length(temp1[1])
-    P = zeros(State.G.n,nexog2)
+    P = zeros(length(State.G),nexog2)
 
-    for i = 1:State.G.n
+    for i = 1:length(State.G)
          for j = 1:nexog2
             tempP = 1.0
             for N = 1:State.nexog
@@ -32,7 +30,7 @@ function FutureVariables(foc::Expr,aux::Expr,State::StateVariables)
           end
     end
 
-    stateP = zeros(State.G.n*size(P,2),State.n)
+    stateP = zeros(length(State.G)*size(P,2),State.n)
     for i = 1:State.nexog
         stateP[:,State.nendo+i] = exogenousfuture[i][:]
     end
@@ -56,9 +54,9 @@ function FutureVariables(foc::Expr,aux::Expr,State::StateVariables)
                      size(P,2),
                      loc,
                      futurevar,
-                     Array(Float64,State.G.n*size(P,2),length(futurevar)),
+                     Array(Float64,length(State.G)*size(P,2),length(futurevar)),
                      P,
-                     zeros(State.G.n,length(loc)),
+                     zeros(length(State.G),length(loc)),
                      stateP,
                      expectations)
     end

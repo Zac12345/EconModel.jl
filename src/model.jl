@@ -36,7 +36,7 @@ function show(io::IO,M::Model)
 end
 
 
-function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;gtype=CurtisClenshaw)
+function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=QuadraticBF)
     endogenous = :[]
     exogenous = :[]
     agg  = :[]
@@ -74,7 +74,6 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;gtype
                 push!(agg.args[1].args,states.args[i].args[1])
             end
         end
-
     end
 
     Model(foc,
@@ -84,12 +83,12 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;gtype
             static,
             Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args])),
             aux,
-            agg,gtype)
+            agg,BF)
 end
 
 
 
-function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux,agg,gtype)
+function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux::Expr,agg::Expr,BF)
 
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
 
@@ -104,7 +103,7 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                                         [])
 
     slist                   = getslist(static,params)
-    State                   = StateVariables(endogenous,exogenous,gtype)
+    State                   = StateVariables(endogenous,exogenous,BF)
     Policy                  = PolicyVariables(policy,State)
     subs!(foc,params)
     addindex!(foc)
@@ -130,7 +129,7 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                 Policy,
                 State,
                 Static,
-                ones(State.G.n,Policy.n),
+                ones(length(State.G),Policy.n),
                 meta,
                 eval(Ffunc),
                 eval(Efunc),

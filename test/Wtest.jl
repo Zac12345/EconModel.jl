@@ -49,7 +49,7 @@ function getfuture1(M::Model,W::SparseMatrixCSC{Float64})
         if in(M.future.names[j],M.policy.names)
             ub = M.policy.ub[findfirst(M.future.names[j].==M.policy.names)]
             lb = M.policy.lb[findfirst(M.future.names[j].==M.policy.names)]
-            for i = 1:M.state.G.n*M.future.nP
+            for i = 1:M.length(M.state.G)*M.future.nP
                 M.future.X[i,j]=max(M.future.X[i,j],lb)
                 M.future.X[i,j]=min(M.future.X[i,j],ub)
             end
@@ -90,7 +90,7 @@ function solve1!(M::Model,
         for ii = 1:upf
             M.E(M)
             M.F(M)
-            for i = 1:M.state.G.n
+            for i = 1:M.length(M.state.G)
                 x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
                 @simd for j = 1:M.policy.n
                     @inbounds M.policy.X[i,j] *= ϕ

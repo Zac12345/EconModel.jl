@@ -1,6 +1,7 @@
 import EconModel:ModelMeta,StateVariables,PolicyVariables,subs!,addindex!,tchange!,getv,FutureVariables,AggregateVariables,AuxillaryVariables,getMnames,buildE,buildF,buildJ,StaticVariables,genlist,ndgrid,StochasticProcess,getvlist,buildS,getslist
 
-gtype=CurtisClenshaw
+
+BF = QuadraticBF
 
 (foc,states,policy,vars,params)=
 (:[
@@ -89,7 +90,7 @@ meta                    = ModelMeta(deepcopy(foc),
                                     [])
 
 slist                   = getslist(static,params)
-State                   = StateVariables(endogenous,exogenous,gtype)
+State                   = StateVariables(endogenous,exogenous,BF)
 Policy                  = PolicyVariables(policy,State)
 subs!(foc,params)
 addindex!(foc)
@@ -101,10 +102,7 @@ Future                  = FutureVariables(foc,aux,State)
 Auxillary               = AuxillaryVariables(aux,State,Future)
 Aggregate               = AggregateVariables(agg,State,Future,Policy)
 
-
 vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate)
-
-
 
 Efunc                   = buildE(Future,vlist)
 Ffunc                   = buildF(foc,vlist)
@@ -120,7 +118,7 @@ return Model(Aggregate,
             Policy,
             State,
             Static,
-            ones(State.G.n,Policy.n),
+            ones(length(M.state.G),Policy.n),
             meta,
             eval(Ffunc),
             eval(Efunc),

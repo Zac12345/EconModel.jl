@@ -1,4 +1,3 @@
-
 function getfuture(M::Model)
     for i = 1:M.state.nendo
         if in(M.state.names[i],M.policy.names)
@@ -13,16 +12,13 @@ function getfuture(M::Model)
         end
     end
 
-    for i = 1:length(M.future.names)
-       @inbounds M.future.X[:,i] = interp(M.future.state,
-                                      M.state.G,
-                                      M[M.future.names[i],0])
-    end
+    M.future.X[:] =  interp(M.future.state,M.state.G,hcat([M[n,0] for n ∈ M.future.names]...))[:]
+
     for j= 1:length(M.future.names)
         if in(M.future.names[j],M.policy.names)
             ub = M.policy.ub[findfirst(M.future.names[j].==M.policy.names)]
             lb = M.policy.lb[findfirst(M.future.names[j].==M.policy.names)]
-            for i = 1:M.state.G.n*M.future.nP
+            for i = 1:length(M.state.G)*M.future.nP
                 M.future.X[i,j]=max(M.future.X[i,j],lb)
                 M.future.X[i,j]=min(M.future.X[i,j],ub)
             end
@@ -63,7 +59,7 @@ function solve!(M::Model,
         for ii = 1:upf
             M.E(M)
             M.F(M)
-            for i = 1:M.state.G.n
+            for i = 1:length(M.state.G)
                 x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
                 @simd for j = 1:M.policy.n
                     @inbounds M.policy.X[i,j] *= ϕ

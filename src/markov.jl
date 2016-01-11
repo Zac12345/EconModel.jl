@@ -1,32 +1,31 @@
 abstract StochasticProcess
 type AR <: StochasticProcess
-  μ::Float64
-  ρ::Float64
-  σ::Float64
-  x::Array{Float64,1}
-  T::Array{Float64,2}
-  function AR(μ,ρ,σ,n)
-    (x,t) = rouwenhorst(μ,ρ,σ,n)
-    new(μ,ρ,σ,[x[:];],t'')
-  end
+    μ::Float64
+    ρ::Float64
+    σ::Float64
+    x::Array{Float64,1}
+    T::Array{Float64,2}
+    function AR(μ,ρ,σ,n)
+        (x,t) = rouwenhorst(μ,ρ,σ,n)
+        new(μ,ρ,σ,[x[:];],t'')
+    end
 end
 
 type Markov <: StochasticProcess
-  x::Array{Float64,1}
-  T::Array{Float64,2}
+    x::Array{Float64,1}
+    T::Array{Float64,2}
 end
 
-function Markov(x::Expr,gtype::Module)
-  ni = length(x.args[2].args[2].args)
-  for i = 1:ni
-    @assert length(x.args[2].args[2].args[i].args) == ni
-  end
-  if length(x.args[2].args[1].args) != 2
-    error("Markov processes can only be specified by end points of grid")
-  end
+function Markov(x::Expr)
+    ni = length(x.args[2].args[2].args)
+    for i = 1:ni
+        @assert length(x.args[2].args[2].args[i].args) == ni
+    end
+    if length(x.args[2].args[1].args) != 2
+        error("Markov processes can only be specified by end points of grid")
+    end
 
-  return Markov(linspace(x.args[2].args[1].args[1],x.args[2].args[1].args[2],gtype.M(x.args[2].args[3]+1)),
-                       Float64[x.args[2].args[2].args[i].args[j] for i = 1:ni,j=1:ni])
+    return Markov(linspace(x.args[2].args[1].args[1],x.args[2].args[1].args[2],CC.M(x.args[2].args[3]+1)),Float64[x.args[2].args[2].args[i].args[j] for i = 1:ni,j=1:ni])
 end
 
 function tauchen(mu,rho,sigma,N,m=3)
@@ -89,39 +88,36 @@ function cdf_normal(x) :inline
 end
 
 function MarkovSim(id::Int64,p::Array{Float64},r::Float64=rand())
-  id1::Int64
-  tsd = p[id,:][:]
-  cd = cumsum(tsd)
-  id1 = find(cd.>=r)[1]
-  return id1
+    id1::Int64
+    tsd = p[id,:][:]
+    cd = cumsum(tsd)
+    id1 = find(cd.>=r)[1]
+    return id1
 end
 
 function MarkovSim(ID::Vector{Int64},p::Array{Float64})
-  ID1 = zeros(Int64,length(ID))::Vector{Int64}
-  for i = 1:length(ID)
-    ID1[i] = MarkovSim(ID[i],p)
-  end
-  return ID1
+    ID1 = zeros(Int64,length(ID))::Vector{Int64}
+    for i = 1:length(ID)
+        ID1[i] = MarkovSim(ID[i],p)
+    end
+    return ID1
 end
 
 function MarkovSim(ID::Vector{Int},E::Markov)
-  for i = 1:length(E)
-    id1 = find(ID.==i)
-    r = linspace(0,1,length(id1))[randperm(length(id1));]
-    for j = 1:length(r)
-      ID[id1[j]]=MarkovSim(ID[id1[j]],E.T,r[j])
-    #   ID[id1[j]]=MarkovSim(sub(ID,id1[j]),E.T,r[j])
+    for i = 1:length(E)
+        id1 = find(ID.==i)
+        r = linspace(0,1,length(id1))[randperm(length(id1));]
+        for j = 1:length(r)
+            ID[id1[j]]=MarkovSim(ID[id1[j]],E.T,r[j])
+        end
     end
-  end
-  return ID
+    return ID
 end
 
 
-ARSim(x::Vector{Float64},e::EconModel.AR,s=randn(size(x))) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
-ARSim(x::Float64,e::EconModel.AR,s=randn()) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
+ARSim(x::Vector{Float64},e::AR,s=randn(size(x))) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
+ARSim(x::Float64,e::AR,s=randn()) = clamp((1-e.ρ)*e.μ + e.ρ*x+s*e.σ,minimum(e.x),maximum(e.x))
 
 Base.length(mk::Markov) = length(mk.x)
 Base.length(x::AR) = length(x.x)
-
-
 Base.mean(m::StochasticProcess) = diag(m.T^200)

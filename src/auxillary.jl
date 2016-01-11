@@ -3,7 +3,7 @@ type AuxillaryVariables
     names::Array{Symbol,1}
     X::Array{Float64,2}
     function AuxillaryVariables(aux::Expr,State::StateVariables,Future::FutureVariables)
-        X = zeros(State.G.n,length(aux.args))
+        X = zeros(length(State.G),length(aux.args))
         for i = 1:length(aux.args)
             X[:,i] = aux.args[i].args[2]
         end

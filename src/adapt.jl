@@ -7,10 +7,10 @@ function SparseGrids.getW(M::Model,v::UnitRange{Int}=1:M.policy.n)
 end
 
 
-function shrink!(M::Model,id::Vector{Int})
+function SparseGrids.shrink!(M::Model,id::Vector{Int})
     oldpolicy = M.policy.X[id,:]
     M.aggregate.n >0 ? oldagg = M.aggregate.X[id,:] : nothing
-    SparseGrids.shrink!(M.state.G,id)
+    SparseGrids.shrink!(M.state.G,BitArray([in(i,id) for i = 1:length(M)]))
     M.state.X=M.state.X[id,:]
 
     for ie = 1:M.state.nexog
@@ -18,7 +18,7 @@ function shrink!(M::Model,id::Vector{Int})
             idex = Bool[in(x,unique(M.state.X[:,M.state.nendo+ie])) for x in M.state.exog[ie].x]
             M.state.exog[ie].x = M.state.exog[ie].x[idex]
             M.state.exog[ie].T = M.state.exog[ie].T[idex,idex]
-            @assert all(sum(M.state.exog[ie].T,2).==1.0) "Changing of grid has caused transition matrix of $(M.state.names[M.state.nendo+ie]) to no longer be complete"
+            all(sum(M.state.exog[ie].T,2).==1.0) ? warn("Changing of grid has caused transition matrix of $(M.state.names[M.state.nendo+ie]) to no longer be complete") : nothing
         end
     end
 
@@ -27,7 +27,7 @@ function shrink!(M::Model,id::Vector{Int})
     static = deepcopy(M.meta.static)
 
 
-    params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
+    # params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
     subs!(foc,params)
     addindex!(foc)
     subs!(static,params)
@@ -52,7 +52,7 @@ function shrink!(M::Model,id::Vector{Int})
     M.aggregate             = AggregateVariables(M.meta.aggregate,M.state,M.future,M.policy)
 
 
-    M.static.X               = zeros(M.state.G.n,M.static.n)
+    M.static.X               = zeros(length(M.state.G),M.static.n)
     M.static.sget(M)
     M.error                  = M.error[id,:]
     M.policy.X[:] = oldpolicy
@@ -60,7 +60,7 @@ function shrink!(M::Model,id::Vector{Int})
     return
 end
 
-function grow!(M::Model,id,bounds::Vector{Int})
+function SparseGrids.grow!(M::Model,id,bounds::Vector{Int})
     oldM = deepcopy(M)
     SparseGrids.grow!(M.state.G,id,bounds)
     M.state.X=values(M.state.G)
@@ -69,7 +69,7 @@ function grow!(M::Model,id,bounds::Vector{Int})
     params = deepcopy(M.meta.parameters)
     static = deepcopy(M.meta.static)
 
-    params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
+    # params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
     subs!(foc,params)
     addindex!(foc)
     subs!(static,params)
@@ -91,9 +91,9 @@ function grow!(M::Model,id,bounds::Vector{Int})
     M.future                 = FutureVariables(foc,M.meta.auxillary,M.state)
     M.auxillary              = AuxillaryVariables(M.meta.auxillary,M.state,M.future)
     M.aggregate               = AggregateVariables(M.meta.aggregate,M.state,M.future,M.policy)
-    M.static.X               = zeros(M.state.G.n,M.static.n)
+    M.static.X               = zeros(length(M.state.G),M.static.n)
     M.static.sget(M)
-    M.error                  = zeros(M.state.G.n,M.policy.n)
+    M.error                  = zeros(length(M.state.G),M.policy.n)
     M.F(M)
     for i = 1:M.policy.n
         M.policy.X[:,i] = interp(oldM,M.policy.names[i],M.state.X)

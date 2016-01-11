@@ -14,7 +14,7 @@ type StaticVariables
         snames = collect(keys(static))
         sslist = genlist(variablelist[:,1],variablelist[:,2])
 
-        bigS  =   Expr(:for,:(i = 1:M.state.G.n),Expr(:block))
+        bigS  =   Expr(:for,:(i = 1:length(M.state.G)),Expr(:block))
         for i = 1:length(snames)
             s = snames[i]
             targ = static[s]
@@ -27,7 +27,7 @@ type StaticVariables
         Static = new(length(snames),
                     Symbol[removeindex!(x) for x in snames],
                     eval(:($Sarg = $(bigS))),
-                    zeros(State.G.n,length(snames)),
+                    zeros(length(State.G),length(snames)),
                     static)
     end
 end
