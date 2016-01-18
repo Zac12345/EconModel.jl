@@ -44,56 +44,7 @@ function bisection(F::Function,x0::Float64, x1::Float64,tolerance::Float64=1e-8,
     end
 end
 
-function boxmin(f::Function,x,l,u,dx=1.0,ddx = 1.0,itlim=100,track = false)
-	n = length(x)
-	# X = grid_CC(n,6,[l[:]'; u[:]']).grid
-	X = [x']
-	fX = f(x)
-	cont = true
 
-	sdx = true
-	it = 0
-	while cont
-		# println("$it  $sdx $(f(x))")
-		it +=1
-		g=gradient(f,x)
-		if sdx
-			dx = dx*ddx
-		else
-			dx = dx*1/ddx
-		end
-		X2 = grid_CC(n,2,[x[1]-dx x[2]-dx;x[1]+dx x[2]+dx]).grid
-		fX2 = f(x)*ones(size(X2,1))
-		gX2 =(X2.-x').*g'
-		fX2 = fX2+sum(gX2,2)
-		x = X2[indmin(fX2),:][:]
-		x = [max(x[i],l[i])::Float64 for i =1:n]
-		x = [min(x[i],u[i])::Float64 for i =1:n]
-		X = [X;x']
-		fX = [fX;f(x)]
-		if it>itlim
-			cont = false
-		end
-		if it>10
-			sdx = true
-			if maximum(diff(fX[end-5:end]))<1e-5
-				sdx = false
-			end
-		end
-		if it>50
-
-			if maximum(diff(fX[end-20:end]))<1e-5
-				break
-			end
-		end
-
-	end
-	if track
-		return X
-	else
-		return x
-	end
-end
 
 
 

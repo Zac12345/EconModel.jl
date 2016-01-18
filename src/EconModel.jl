@@ -4,6 +4,7 @@ using Calculus,SparseGrids,Polynomials,Base.Threads
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 
+include("expralgebra.jl")
 include("markov.jl")
 include("state.jl")
 include("policy.jl")
@@ -19,6 +20,7 @@ include("utils.jl")
 include("optim.jl")
 include("solve.jl")
 include("adapt.jl")
+include("problemparse.jl")
 # include("kf.jl")
 # include("store.jl")
 # include("tk.jl")
@@ -51,7 +53,8 @@ export  ARSim,
         updateaggregate!,
         updateaggregatevariables!,
         updatedistribution!,
-        updatetransition!
+        updatetransition!,
+        parsemodel
 
 
 precompile(Model,(Expr,Expr,Expr,Expr,Expr,Expr))

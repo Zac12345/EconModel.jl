@@ -8,7 +8,8 @@ operators = [:-
             :Expect
             :max
             :min
-            :∫]
+            :∫
+            :≤]
 
 function differentiate(::SymbolParameter{:max}, args, wrt)
   return Expr(:if,:($(args[1])>$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
@@ -51,6 +52,43 @@ function subs!(x::Expr,list::Dict)
         end
     end
 end
+
+function subs(x1::Expr,list::Dict)
+    x = deepcopy(x1)
+    for i = 1:length(x.args)
+        if in(x.args[i],keys(list))
+            x.args[i] = list[x.args[i]]
+        elseif isa(x.args[i],Expr)
+            subs!(x.args[i],list)
+        end
+    end
+    return x
+end
+
+
+function subs!(x::Expr,s::Pair)
+    for i = 1:length(x.args)
+        if x.args[i]==s.first
+            x.args[i] = s.second
+        elseif isa(x.args[i],Expr)
+            subs!(x.args[i],s)
+        end
+    end
+end
+
+function subs(x1::Expr,s::Pair)
+    x = deepcopy(x1)
+    for i = 1:length(x.args)
+        if x.args[i]==s.first
+            x.args[i] = s.second
+        elseif isa(x.args[i],Expr)
+            subs!(x.args[i],s)
+        end
+    end
+    return x
+end
+
+
 
 function addindex!(x,ignore=operators)
     if typeof(x) == Expr
