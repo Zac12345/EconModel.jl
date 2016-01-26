@@ -1,15 +1,3 @@
-type ModelMeta
-    foc::Expr
-    parameters
-    endogenous::Expr
-    exogenous::Expr
-    policy::Expr
-    static::Expr
-    auxillary::Expr
-    aggregate::Expr
-    funcs
-end
-
 type Model
     aggregate::AggregateVariables
     auxillary::AuxillaryVariables
@@ -18,21 +6,19 @@ type Model
     state::StateVariables
     static::StaticVariables
     error::Array{Float64,2}
-    meta::ModelMeta
+    parameters::Dict
     F::Function
-    E::Function
     J::Function
-    S::Function
 end
 
 
 function show(io::IO,M::Model)
   println("State: $(M.state.names)")
   println("Policy: $(M.policy.names)")
-  println("\n FOC: \n")
-  for i = 1:length(M.meta.foc.args)
-  	println("\t$(M.meta.foc.args[i])")
-  end
+  # println("\n FOC: \n")
+  # for i = 1:length(M.meta.foc.args)
+  # 	println("\t$(M.meta.foc.args[i])")
+  # end
 end
 
 
@@ -89,18 +75,7 @@ end
 
 
 function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux::Expr,agg::Expr,BF)
-
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
-
-    meta                    = ModelMeta(deepcopy(foc),
-                                        deepcopy(params),
-                                        deepcopy(endogenous),
-                                        deepcopy(exogenous),
-                                        deepcopy(policy),
-                                        deepcopy(static),
-                                        deepcopy(aux),
-                                        deepcopy(agg),
-                                        [])
 
     slist                   = getslist(static,params)
     State                   = StateVariables(endogenous,exogenous,BF)
@@ -112,27 +87,27 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
     Future                  = FutureVariables(foc,aux,State)
     Auxillary               = AuxillaryVariables(aux,State,Future)
     Aggregate               = AggregateVariables(agg,State,Future,Policy)
-
     vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate)
 
-    Efunc                   = buildE(Future,vlist)
-    Ffunc                   = buildF(foc,vlist)
-    j                       = buildJ(foc,vlist,Policy)
-    Jarg                    = Expr(:call,gensym("J"),Expr(:(::),:M,:Model),Expr(:(::),:i,:Int64))
+    removeexpect!(foc)
+    subs!(foc,Dict(zip(vlist[:,1],vlist[:,3])))
+    J = jacobian(foc,[symbol("U"*string(i)) for i = 1:Policy.n])
+    subs!(foc,Dict(zip(vlist[:,3],vlist[:,2])))
+    subs!(J,Dict(zip(vlist[:,3],vlist[:,2])))
+    addpweights!(foc,Future.nP)
+    addpweights!(J,Future.nP)
+
     Static                  = StaticVariables(slist,vlist,State)
     Sfunc                   = buildS(slist,vlist,State)
-    [push!(meta.funcs,v) for v in [Efunc;Ffunc;j;Sfunc]]
 
-    return Model(Aggregate,
-                Auxillary,
-                Future,
-                Policy,
-                State,
-                Static,
-                ones(length(State.G),Policy.n),
-                meta,
-                eval(Ffunc),
-                eval(Efunc),
-                eval(:(@fastmath $Jarg = $(j))),
-                x->x)
+    M= Model(Aggregate,
+    			Auxillary,
+    			Future,
+    			Policy,
+    			State,
+    			Static,
+    			ones(length(State.G),Policy.n),
+    			params,
+    			eval(buildF(foc)),
+    			eval(buildJ(J)))
 end

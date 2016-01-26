@@ -1,4 +1,5 @@
-import EconModel:ModelMeta,StateVariables,PolicyVariables,subs!,addindex!,tchange!,getv,FutureVariables,AggregateVariables,AuxillaryVariables,buildE,buildF,buildJ,StaticVariables,genlist,ndgrid,StochasticProcess,getvlist,buildS,getslist,subs
+import EconModel:StateVariables,PolicyVariables,subs!,addindex!,tchange!,getv,FutureVariables,AggregateVariables,AuxillaryVariables,buildF,buildJ,StaticVariables,genlist,ndgrid,StochasticProcess,getvlist,buildS,getslist,subs,removeexpect!,addpweights!
+import Calculus:jacobian
 
 
 BF = QuadraticBF
@@ -67,10 +68,6 @@ end
 params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
 
 
-meta                    = ModelMeta(deepcopy(foc),deepcopy(params),deepcopy(endogenous),deepcopy(exogenous),deepcopy(policy),deepcopy(static),deepcopy(aux),deepcopy(agg),[])
-@assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
-
-
 slist                   = getslist(static,params)
 State                   = StateVariables(endogenous,exogenous,BF)
 Policy                  = PolicyVariables(policy,State)
@@ -78,57 +75,41 @@ subs!(foc,params)
 addindex!(foc)
 subs!(foc,slist)
 
-
-
 Future                  = FutureVariables(foc,aux,State)
 Auxillary               = AuxillaryVariables(aux,State,Future)
 Aggregate               = AggregateVariables(agg,State,Future,Policy)
 vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate)
 
+removeexpect!(foc)
+subs!(foc,Dict(zip(vlist[:,1],vlist[:,3])))
+J = jacobian(foc,[symbol("U"*string(i)) for i = 1:Policy.n])
+subs!(foc,Dict(zip(vlist[:,3],vlist[:,2])))
+subs!(J,Dict(zip(vlist[:,3],vlist[:,2])))
+addpweights!(foc,Future.nP)
+addpweights!(J,Future.nP)
 
-foc1 = deepcopy(foc)
-expe = deepcopy(Future.equations)
-[subs!(e,Dict(zip(vlist[:,1],vlist[:,2]))) for e in expe]
-expe1 = Expr[sum([(subs(e,:j=>j))*:(M.future.P[i,$j]) for j = 1:Future.nP ]) for e in expe ]
-
-vlist1 = vlist[map(e->e.args[1],vlist[:,1]).==:Expect,:]
-
-subs!(foc1,Dict(zip(vlist1[:,1],expe1)))
-subs!(foc1,Dict(zip(vlist[:,2],vlist[:,1])))
-F2=eval(buildF(foc1,vlist))
-
-
-
-
-Efunc                   = buildE(Future,vlist)
-Ffunc                   = buildF(foc,vlist)
-j                       = buildJ(foc,vlist,Policy)
-Jarg                    = Expr(:call,gensym("J"),Expr(:(::),:M,:Model),Expr(:(::),:i,:Int64))
 Static                  = StaticVariables(slist,vlist,State)
 Sfunc                   = buildS(slist,vlist,State)
-[push!(meta.funcs,v) for v in [Efunc;Ffunc;j;Sfunc]]
 
-M =  Model(Aggregate,
-            Auxillary,
-            Future,
-            Policy,
-            State,
-            Static,
-            ones(length(State.G),Policy.n),
-            meta,
-            eval(Ffunc),
-            eval(Efunc),
-            eval(:(@fastmath $Jarg = $(j))),
-            x->x)
+M= Model(Aggregate,
+			Auxillary,
+			Future,
+			Policy,
+			State,
+			Static,
+			ones(length(State.G),Policy.n),
+			params,
+			eval(buildF(foc)),
+			eval(buildJ(J)))
+
+
+
 
 ϕ = 0.4
 for iter = 1:1000
-
-
 	getfuture(M)
 	for ii = 1:4
-		M.E(M)
-		F2(M)
+		M.F(M)
 		for i = 1:length(M.state.G)
 			x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
 			@simd for j = 1:M.policy.n
@@ -137,6 +118,7 @@ for iter = 1:1000
 			end
 		end
 	end
+	println(round(mean(abs(M.error),1),4))
 	if any(isnan(M.policy.X))
 		error("Policy function = NaN at iter $iter")
 	end

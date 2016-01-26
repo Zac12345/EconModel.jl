@@ -1,33 +1,26 @@
-function buildE(Future::FutureVariables,vlist)
-    bigE=    Expr(:for,:(i = 1:length(M.state.G)),
-                 Expr(:block,:(M.future.E[i,:]=0.0),
-                      Expr(:for,:(j=1:M.future.nP),Expr(:block)
-                           )
-                      )
-                 )
-
-    for i = 1: length(Future.equations)
-        Etarg = deepcopy(Future.equations[i])
-        subs!(Etarg,genlist(vlist[:,1],vlist[:,2]))
-        Etarg=:(M.future.E[i,$i] += *($Etarg,(M.future.P[i,j])))
-        push!(bigE.args[2].args[2].args[2].args,Etarg)
-    end
-
-    Earg = Expr(:call,gensym("E"),Expr(:(::),:M,:Model))
-    return :(@fastmath $Earg = $(bigE))
-end
-
-function buildF(foc::Expr,vlist)
+function buildF(foc::Expr)
     bigF = Expr(:for,:(i=1:length(M.state.G)),Expr(:block))
-    ftarg = deepcopy(foc)
-    subs!(ftarg,genlist(vlist[:,1],vlist[:,2]))
-    for i = 1:length(ftarg.args)
-        push!(bigF.args[2].args,:(M.error[i,$i] = $(ftarg.args[i])))
+    for i = 1:length(foc.args)
+        push!(bigF.args[2].args,:(M.error[i,$i] = $(foc.args[i])))
     end
-
-    Farg = Expr(:call,gensym("F"),Expr(:(::),:M,:Model))
-    return :(@fastmath $Farg = $(bigF))
+    return :(@fastmath $(Expr(:call,gensym("F"),Expr(:(::),:M,:Model))) = $(bigF))
 end
+
+function buildJ(J::Expr)
+    return :(@fastmath $(Expr(:call,gensym("J"),Expr(:(::),:M,:Model),Expr(:(::),:i,:Int))) = $(J))
+end
+
+# function buildF(foc::Expr,vlist)
+#     bigF = Expr(:for,:(i=1:length(M.state.G)),Expr(:block))
+#     ftarg = deepcopy(foc)
+#     subs!(ftarg,genlist(vlist[:,1],vlist[:,2]))
+#     for i = 1:length(ftarg.args)
+#         push!(bigF.args[2].args,:(M.error[i,$i] = $(ftarg.args[i])))
+#     end
+#
+#     Farg = Expr(:call,gensym("F"),Expr(:(::),:M,:Model))
+#     return :(@fastmath $Farg = $(bigF))
+# end
 
 
 function buildJ(foc::Expr,vlist,Policy::PolicyVariables)

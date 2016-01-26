@@ -11,31 +11,7 @@ operators = [:-
             :∫
             :≤]
 
-import Calculus.differentiate
-function differentiate(ex::Expr,wrt)
-	if ex.head==:vect
-		return differentiate(SymbolParameter(:vect), ex.args[1:end], wrt)
-	end
-	if ex.head != :call
-		error("Unrecognized expression $ex")
-	end
-    return simplify(differentiate(SymbolParameter(ex.args[1]), ex.args[2:end], wrt))
-end
 
-
-function differentiate(::SymbolParameter{:vect}, args, wrt)
-	for i = 1:length(args)
-		args[i] = differentiate(args[i],wrt)
-	end
-	return Expr(:vect,args...)
-end
-
-function differentiate(::SymbolParameter{:max}, args, wrt)
-  return Expr(:if,:($(args[1])>$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
-end
-function differentiate(::SymbolParameter{:min}, args, wrt)
-  return Expr(:if,:($(args[1])<$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
-end
 
 function genlist(list::Expr,a,b)
   d = Dict{a,b}()
@@ -144,10 +120,23 @@ end
 function removeexpect!(x)
   if typeof(x) == Expr
     if (x.head == :call) && (x.args[1] == :Expect)
-      return x.args[2]
+      return :StochasticProbs*x.args[2]
     else
       for i = 1:length(x.args)
         x.args[i]=removeexpect!(x.args[i])
+      end
+    end
+  end
+  return x
+end
+
+function addpweights!(x,nP)
+  if typeof(x) == Expr
+    if (x.head == :call) && (x.args[1] == :*) && (x.args[2]==:StochasticProbs)
+      return Expr(:call,:+,[subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP]...)
+    else
+      for i = 1:length(x.args)
+        x.args[i]=addpweights!(x.args[i],nP)
       end
     end
   end
@@ -260,7 +249,7 @@ function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVa
 
     vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
 
-    vlist=vcat(vlist,vcat([[Expr(:call,:Expect,Future.loc[i]) Expr(:ref,:(M.future.E),:i,i) Symbol("E$i")] for i = 1:length(Future.loc)]...))
+
     return vlist
 end
 

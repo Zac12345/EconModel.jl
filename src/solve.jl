@@ -57,7 +57,6 @@ function solve!(M::Model,
             break
         end
         for ii = 1:upf
-            M.E(M)
             M.F(M)
             for i = 1:length(M.state.G)
                 x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))

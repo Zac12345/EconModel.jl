@@ -1,13 +1,10 @@
 type FutureVariables
   n::Int64
   nP::Int64
-  loc::Array{Int64,1}
   names::Array{Symbol,1}
   X::Array{Float64,2}
   P::Array{Float64,2}
-  E::Array{Float64,2}
   state::Array{Float64,2}
-  equations::Array{Expr,1}
 end
 
 function FutureVariables(foc::Expr,aux::Expr,State::StateVariables)
@@ -38,25 +35,10 @@ function FutureVariables(foc::Expr,aux::Expr,State::StateVariables)
     futurevar = [x[1] for x in filter(x->x[2]>0,unique(getv(foc,Any[])))]
     futurevar = collect(setdiff(Set(futurevar),Set(State.names[State.nendo+1:end])))
 
-    loc=Int64[]
-    ecnt = 0
-      expectations = Any[]
-      for i = 1:length(foc.args)
-        eecnt = ecnt*1
-        getexpectation(foc.args[i],expectations,i)
-        ecnt=length(expectations)
-        if ecnt!=eecnt
-          push!(loc,i)
-        end
-      end
-
-      FutureVariables(length(loc),
+      FutureVariables(length(futurevar),
                      size(P,2),
-                     loc,
                      futurevar,
                      Array(Float64,length(State.G)*size(P,2),length(futurevar)),
                      P,
-                     zeros(length(State.G),length(loc)),
-                     stateP,
-                     expectations)
+                     stateP)
     end

@@ -1,9 +1,10 @@
 __precompile__()
 module EconModel
-using Calculus,SparseGrids,Polynomials,Base.Threads
+using Calculus,SparseGrids,Base.Threads
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 
+include("calculus.jl")
 include("expralgebra.jl")
 include("markov.jl")
 include("state.jl")
