@@ -11,6 +11,25 @@ operators = [:-
             :∫
             :≤]
 
+import Calculus.differentiate
+function differentiate(ex::Expr,wrt)
+	if ex.head==:vect
+		return differentiate(SymbolParameter(:vect), ex.args[1:end], wrt)
+	end
+	if ex.head != :call
+		error("Unrecognized expression $ex")
+	end
+    return simplify(differentiate(SymbolParameter(ex.args[1]), ex.args[2:end], wrt))
+end
+
+
+function differentiate(::SymbolParameter{:vect}, args, wrt)
+	for i = 1:length(args)
+		args[i] = differentiate(args[i],wrt)
+	end
+	return Expr(:vect,args...)
+end
+
 function differentiate(::SymbolParameter{:max}, args, wrt)
   return Expr(:if,:($(args[1])>$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
 end
@@ -122,18 +141,38 @@ function removeindex!(x)
 end
 
 
-function removeexpect(x)
+function removeexpect!(x)
   if typeof(x) == Expr
     if (x.head == :call) && (x.args[1] == :Expect)
       return x.args[2]
     else
       for i = 1:length(x.args)
-        x.args[i]=removeexpect(x.args[i])
+        x.args[i]=removeexpect!(x.args[i])
       end
     end
   end
   return x
 end
+
+function remtime!(x)
+	if isa(x,Expr)
+		if x.head==:ref
+			if x.args[2] == -1
+				return symbol(string(x.args[1])*"_L")
+			elseif x.args[2] == 0
+				return symbol(string(x.args[1])*"_")
+			elseif x.args[2] == 1
+				return symbol(string(x.args[1])*"_P")
+			end
+		else
+			for i = 1:length(x.args)
+				x.args[i] = remtime!(x.args[i])
+			end
+		end
+	end
+	return x
+end
+
 
 
 function tchange!(x::Expr,t::Int64,ignore=operators)

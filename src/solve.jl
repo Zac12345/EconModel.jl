@@ -67,6 +67,9 @@ function solve!(M::Model,
                 end
             end
         end
+        if any(isnan(M.policy.X))
+            error("Policy function = NaN at iter $iter")
+        end
 
         if disp!==-1 && mod(iter,disp) == 0
             printerr(M,iter,crit)
