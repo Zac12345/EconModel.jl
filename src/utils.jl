@@ -183,8 +183,6 @@ function SparseGrids.interp(M::Model,x::Symbol,X::Array{Float64,2})
     end
 end
 
-
-
 function Expect(M::Model,x::Symbol)
   xP = zeros(length(M))
   getfuture(M)

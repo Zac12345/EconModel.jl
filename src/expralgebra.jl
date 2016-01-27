@@ -1,5 +1,23 @@
 using Calculus
-import Base:+,-,*,/
+import Base:+,-,*,/,vec
+
+function vec(ex::Expr)
+	nex = :([])
+	nc = length(ex.args)
+	nr = length(ex.args[1].args)
+	@assert ex.head==:vcat
+
+	for r in ex.args
+		@assert r.head == :row && length(r.args) == nr
+	end
+
+    for ri = 1:nr
+    	for ci = 1:nc
+			push!(nex.args,ex.args[ci].args[ri])
+		end
+	end
+	return nex
+end
 
 +{T<:Union{Expr,Symbol,Number}}(x::T) = x
 

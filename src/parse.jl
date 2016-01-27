@@ -11,56 +11,6 @@ operators = [:-
             :∫
             :≤]
 
-import Calculus.differentiate
-function differentiate(ex::Expr,wrt)
-	if ex.head==:vect
-		return differentiate(SymbolParameter(:vect), ex.args[1:end], wrt)
-	end
-	if ex.head != :call
-		error("Unrecognized expression $ex")
-	end
-    return simplify(differentiate(SymbolParameter(ex.args[1]), ex.args[2:end], wrt))
-end
-
-
-function differentiate(::SymbolParameter{:vect}, args, wrt)
-	for i = 1:length(args)
-		args[i] = differentiate(args[i],wrt)
-	end
-	return Expr(:vect,args...)
-end
-
-function differentiate(::SymbolParameter{:max}, args, wrt)
-  return Expr(:if,:($(args[1])>$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
-end
-function differentiate(::SymbolParameter{:min}, args, wrt)
-  return Expr(:if,:($(args[1])<$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
-end
-
-function genlist(list::Expr,a,b)
-  d = Dict{a,b}()
-  for p in list.args
-    merge!(d,Dict(p.args[1]=>p.args[2]))
-  end
-  return d
-end
-
-function genlist(list::Vector,a,b)
-  d = Dict{a,b}()
-  for p in list
-    merge!(d,Dict(p.args[1]=>p.args[2]))
-  end
-  return d
-end
-
-function genlist(l1,l2)
-  d = Dict{Any,Any}()
-  @assert length(l1) == length(l2)
-  for i = 1:length(l1)
-    merge!(d,Dict(l1[i]=>l2[i]))
-  end
-  return d
-end
 
 function subs!(x::Expr,list::Dict)
     for i = 1:length(x.args)
@@ -74,16 +24,9 @@ end
 
 function subs(x1::Expr,list::Dict)
     x = deepcopy(x1)
-    for i = 1:length(x.args)
-        if in(x.args[i],keys(list))
-            x.args[i] = list[x.args[i]]
-        elseif isa(x.args[i],Expr)
-            subs!(x.args[i],list)
-        end
-    end
+    subs!(x,list)
     return x
 end
-
 
 function subs!(x::Expr,s::Pair)
     for i = 1:length(x.args)
@@ -97,13 +40,7 @@ end
 
 function subs(x1::Expr,s::Pair)
     x = deepcopy(x1)
-    for i = 1:length(x.args)
-        if x.args[i]==s.first
-            x.args[i] = s.second
-        elseif isa(x.args[i],Expr)
-            subs!(x.args[i],s)
-        end
-    end
+    subs!(x,s)
     return x
 end
 
@@ -141,38 +78,6 @@ function removeindex!(x)
 end
 
 
-function removeexpect!(x)
-  if typeof(x) == Expr
-    if (x.head == :call) && (x.args[1] == :Expect)
-      return x.args[2]
-    else
-      for i = 1:length(x.args)
-        x.args[i]=removeexpect!(x.args[i])
-      end
-    end
-  end
-  return x
-end
-
-function remtime!(x)
-	if isa(x,Expr)
-		if x.head==:ref
-			if x.args[2] == -1
-				return symbol(string(x.args[1])*"_L")
-			elseif x.args[2] == 0
-				return symbol(string(x.args[1])*"_")
-			elseif x.args[2] == 1
-				return symbol(string(x.args[1])*"_P")
-			end
-		else
-			for i = 1:length(x.args)
-				x.args[i] = remtime!(x.args[i])
-			end
-		end
-	end
-	return x
-end
-
 
 
 function tchange!(x::Expr,t::Int64,ignore=operators)
@@ -192,59 +97,63 @@ function tchange!(x::Expr,t::Int64,ignore=operators)
     x
 end
 
-function symbols(x::Expr,list=Symbol[],ignore=operators)
-    if x.head == :ref
-        push!(list,x.args[1])
-    else
-        for xx in x.args
-            if isa(xx,Expr)
-                list = symbols(xx,list,ignore)
-            elseif isa(xx,Symbol) && !in(xx,ignore)
-                push!(list,xx)
+function getv(x,list,ignore=operators)
+    if isa(x,Expr)
+        if x.head==:ref
+            push!(list,(x.args[1],x.args[2]))
+        else
+            for i = 1:length(x.args)
+                list = getv(x.args[i],list,ignore)
+            end
+        end
+    elseif isa(x,Symbol) && !in(x,ignore)
+        push!(list,(x,0))
+    end
+    return list
+end
+
+function getexpectation(foc)
+    @assert foc.head==:vcat || foc.head==:vect
+    list = :([])
+    for i = 1:length(foc.args)
+        foc.args[i],list= getexpectation(foc.args[i],list,length(list.args)+1)
+    end
+
+    foc1 = deepcopy(foc)
+    subs!(foc1,Dict(zip([Expr(:call,:Expect,i) for i = 1:length(list.args)],list.args)))
+    foc,foc1,list
+end
+
+
+function getexpectation(x,list,ieq)
+    if isa(x,Expr)
+        if x.head==:call && x.args[1]==:Expect
+            push!(list.args,:ProbWeights*x.args[2])
+            x.args[2] = ieq
+        else
+            for i = 1:length(x.args)
+                x.args[i],list = getexpectation(x.args[i],list,ieq)
             end
         end
     end
-    list
+    return x,list
 end
 
-function getv(x::Expr,list,ignore=operators)
-  if x.head==:ref
-    push!(list,(x.args[1],x.args[2]))
-  else
-    for i = 1:length(x.args)
-      list = getv(x.args[i],list,ignore)
+
+function addpweights!(x,nP)
+  if typeof(x) == Expr
+    if (x.head == :call) && (x.args[1] == :*) && (x.args[2]==:ProbWeights)
+      return Expr(:call,:+,[subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP]...)
+    else
+      for i = 1:length(x.args)
+        x.args[i]=addpweights!(x.args[i],nP)
+      end
     end
   end
-  list
+  return x
 end
 
-function getv(x::Symbol,list,ignore=operators)
-  if !in(x,ignore)
-    push!(list,(x,0))
-  end
-  list
-end
-
-getv(x,list,ignore=operators) = list
-
-function getexpectation(x::Expr,list,ieq::Int64)
-  if x.head==:call && x.args[1]==:Expect
-    push!(list,x.args[2])
-#     x = symbol("EXP$ieq")
-    x.args[2] = ieq
-  else
-    for i = 1:length(x.args)
-      x.args[i],list = getexpectation(x.args[i],list,ieq)
-    end
-  end
-
-  x,list
-end
-
-getexpectation(x,list,ieq::Int64) = x,list
-
-
-function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables)
+function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables,expects)
 
     vlist = vcat([[Expr(:ref,State.names[i],-1) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = 1:State.nendo]...)
 
@@ -260,7 +169,8 @@ function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVa
 
     vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
 
-    vlist=vcat(vlist,vcat([[Expr(:call,:Expect,Future.loc[i]) Expr(:ref,:(M.future.E),:i,i) Symbol("E$i")] for i = 1:length(Future.loc)]...))
+    vlist = vcat(vlist,vcat([[Expr(:call,:Expect,i) :(M.temporaries.E[i,$i]) symbol("E$i")] for i = 1:length(expects.args)]...))
+
     return vlist
 end
 
@@ -279,4 +189,21 @@ function getslist(static,plist)
     end
     static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
     return static
+end
+
+function buildfunc(ex::Expr,targ)
+    F = Expr(:for,:(i=1:length(M.state.G)),Expr(:block))
+    for i = 1:length(ex.args)
+        push!(F.args[2].args,:($targ[i,$i] = $(ex.args[i])))
+    end
+    return F
+end
+
+function buildJ(vJ)
+    ex = Expr(:block)
+    for i = 1:length(vJ.args)
+        push!(ex.args,:(M.temporaries.J[$i] = $(vJ.args[i])))
+    end
+    push!(ex.args,:(return))
+    return ex
 end

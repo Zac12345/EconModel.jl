@@ -94,33 +94,6 @@ function ridders(f::Function, a::Real, b::Real;
 end
 
 
-function proot(f::Function,a::Float64,b::Float64)
-    x = linspace(a,b,3)
-    fx = map(f,x)
-    if sign(fx[1]) == sign(fx[3])
-        return x[indmin(abs(fx))]
-    end
-    p=Poly(Float64[ float(x[i])^p for i = 1:length(x), p = 0:2 ]\ fx)
-    r = roots(p)
-    r = real(r[map(isreal,r)])
-    r = r[a.<r.<b]
-
-    return r[1]
-end
-
-function proot5(f::Function,a::Float64,b::Float64)
-    x = linspace(a,b,5)
-    fx = map(f,x)
-    if sign(fx[1]) == sign(fx[5])
-        return x[indmin(abs(fx))]
-    end
-    p=Poly(Float64[ float(x[i])^p for i = 1:length(x), p = 0:4 ]\ fx)
-    r = roots(p)
-    r = real(r[map(isreal,r)])
-    r = r[a.<r.<b]
-
-    return r[1]
-end
 
 function gs_max(fun::Function,A::Float64,D::Float64,iter::Int64 = 50,eps::Float64 = 1e-6)
 	phi = (sqrt(5)-1)/2

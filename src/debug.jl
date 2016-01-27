@@ -1,34 +1,12 @@
-type Temporaries
-    E::Array{Float64,2}
-    J::Array{Float64,2}
+type ModelFuncs
+    F::Expr
+    J::Expr
+    Fs::Expr
+    Js::Expr
+    E::Expr
 end
 
-type Model
-    aggregate::AggregateVariables
-    auxillary::AuxillaryVariables
-    future::FutureVariables
-    policy::PolicyVariables
-    state::StateVariables
-    static::StaticVariables
-    error::Array{Float64,2}
-    F::Function
-    J::Function
-    Fs::Function
-    Js::Function
-    E::Function
-    temporaries::Temporaries
-end
-
-
-
-
-function show(io::IO,M::Model)
-  println("State: $(M.state.names)")
-  println("Policy: $(M.policy.names)")
-end
-
-
-function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=QuadraticBF)
+function debug(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=QuadraticBF)
     endogenous = :[]
     exogenous = :[]
     agg  = :[]
@@ -68,7 +46,7 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=Qu
         end
     end
 
-    Model(foc,
+    debug(foc,
             endogenous,
             exogenous,
             policy,
@@ -78,9 +56,7 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=Qu
             agg,BF)
 end
 
-
-
-function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux::Expr,agg::Expr,BF)
+function debug(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux::Expr,agg::Expr,BF)
 
     @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
 
@@ -104,10 +80,15 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                 State,
                 Static,
                 ones(length(State.G),Policy.n),
-                eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))))),
-                eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(subs(foc,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))))) )  )),
-                eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))))),
-                eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(  buildJ(vec(addpweights!(subs(jacobian(subs(focslow,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))),Future.nP))) )  )),
-                eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
-                Temporaries(zeros(length(State.G),Future.n),zeros(Policy.n,Policy.n)))
+                eval(:($(gensym(:F))(M) = $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))))),
+                eval(:($(gensym(:J))(M,i) = $(buildJ(vec(subs(jacobian(subs(foc,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))))) )  )),
+                eval(:($(gensym(:Fslow))(M) = $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))))),
+                eval(:( $(gensym(:Jslow))(M,i) = $(  buildJ(vec(addpweights!(subs(jacobian(subs(focslow,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))),Future.nP))) )  )),
+                eval(:($(gensym(:E))(M) = $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
+                Temporaries(zeros(length(State.G),Future.n),zeros(Policy.n,Policy.n))),
+            ModelFuncs((:($(gensym(:F))(M) = $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))))),
+                (:($(gensym(:J))(M,i) = $(buildJ(vec(subs(jacobian(subs(foc,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))))) )  )),
+                (:($(gensym(:Fslow))(M) = $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))))),
+                (:( $(gensym(:Jslow))(M,i) = $(  buildJ(vec(addpweights!(subs(jacobian(subs(focslow,Dict(zip(vlist[:,1],vlist[:,3]))),[symbol("U"*string(i)) for i = 1:Policy.n]),Dict(zip(vlist[:,3],vlist[:,2]))),Future.nP))) )  )),
+                (:($(gensym(:E))(M) = $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E)))))                   )
 end

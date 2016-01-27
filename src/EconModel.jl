@@ -1,64 +1,50 @@
 __precompile__()
 module EconModel
-using Calculus,SparseGrids,Polynomials,Base.Threads
+
+using Calculus,SparseGrids,Base.Threads
 import Base: setindex!, getindex, show,clamp,checkbounds
 import Calculus.differentiate
 
+include("calculus.jl")
 include("expralgebra.jl")
 include("markov.jl")
-include("state.jl")
-include("policy.jl")
-include("future.jl")
-include("auxillary.jl")
-include("aggregate.jl")
-include("static.jl")
+include("variables.jl")
 include("model.jl")
 include("aggregatefuncs.jl")
-include("funcs.jl")
 include("parse.jl")
 include("utils.jl")
 include("optim.jl")
 include("solve.jl")
 include("adapt.jl")
 include("problemparse.jl")
-# include("kf.jl")
-# include("store.jl")
-# include("tk.jl")
-
-
-tkpath = "/home/zac/.julia/v0.4/EconModel/src/tk.jl"
+include("debug.jl")
 
 export  ARSim,
-        CurtisClenshaw,
         Expect,
         MarkovSim,
         Maximum,
         Model,
         ModelDistribution!,
         ModelDistribution,
-        NoBoundary,
-        changestate,
         getfuture,
         grow!,
         interp,
-        save,
         setaggregate!,
         shrink!,
-        solveit!,
-        solve!,
-        solveA!,
+        solve,
+        solveS,
         steadystate,
         ∫,
-        load,
         updateaggregate!,
         updateaggregatevariables!,
         updatedistribution!,
         updatetransition!,
-        parsemodel
+        parsemodel,
+        debug
 
 
 precompile(Model,(Expr,Expr,Expr,Expr,Expr,Expr))
-precompile(solve!,(Model,Int,Float64))
+precompile(solve,(Model,Int,Float64))
 
 
 end # module
