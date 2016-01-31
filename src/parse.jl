@@ -120,7 +120,7 @@ function getexpectation(foc)
     end
 
     foc1 = deepcopy(foc)
-    subs!(foc1,Dict(zip([Expr(:call,:Expect,i) for i = 1:length(list.args)],list.args)))
+    subs!(foc1,Dict(zip([Expr(:ref,:Expect,i) for i = 1:length(list.args)],list.args)))
     foc,foc1,list
 end
 
@@ -129,6 +129,7 @@ function getexpectation(x,list,ieq)
     if isa(x,Expr)
         if x.head==:call && x.args[1]==:Expect
             push!(list.args,:ProbWeights*x.args[2])
+            x.head = :ref
             x.args[2] = ieq
         else
             for i = 1:length(x.args)
@@ -139,11 +140,13 @@ function getexpectation(x,list,ieq)
     return x,list
 end
 
+addpweights(x,nP) = addpweights(deepcopy(x),nP)
 
 function addpweights!(x,nP)
   if typeof(x) == Expr
     if (x.head == :call) && (x.args[1] == :*) && (x.args[2]==:ProbWeights)
       return Expr(:call,:+,[subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP]...)
+    #   return sum([subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP])
     else
       for i = 1:length(x.args)
         x.args[i]=addpweights!(x.args[i],nP)
@@ -155,21 +158,21 @@ end
 
 function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables,expects)
 
-    vlist = vcat([[Expr(:ref,State.names[i],-1) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = 1:State.nendo]...)
+    vlist = vcat([[Expr(:ref,State.names[i],-1) Expr(:ref,:(M.state.X),:i,i)] for i = 1:State.nendo]...)
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],0) Expr(:ref,:(M.state.X),:i,i) Symbol("S$i")] for i = State.nendo+1:State.n]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],0) Expr(:ref,:(M.state.X),:i,i)] for i = State.nendo+1:State.n]...))
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i) Symbol("Sp$i")] for i = State.nendo+1:State.n]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i)] for i = State.nendo+1:State.n]...))
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,Policy.names[i],0) Expr(:ref,:(M.policy.X),:i,i) Symbol("U$i")] for i = 1:Policy.n]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,Policy.names[i],0) Expr(:ref,:(M.policy.X),:i,i)] for i = 1:Policy.n]...))
 
-    Auxillary.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Auxillary.names[i],0) Expr(:ref,:(M.auxillary.X),:i,i) Symbol("A$i")] for i = 1:Auxillary.n]...)) : nothing
+    Auxillary.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Auxillary.names[i],0) Expr(:ref,:(M.auxillary.X),:i,i)] for i = 1:Auxillary.n]...)) : nothing
 
-    Aggregate.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Aggregate.names[i],0) Expr(:ref,:(M.aggregate.X),:i,i) Symbol("Ag$i")] for i = 1:Aggregate.n]...)) : nothing
+    Aggregate.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Aggregate.names[i],0) Expr(:ref,:(M.aggregate.X),:i,i)] for i = 1:Aggregate.n]...)) : nothing
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i) Symbol("F$i")] for i = 1:length(Future.names)]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i)] for i = 1:length(Future.names)]...))
 
-    vlist = vcat(vlist,vcat([[Expr(:call,:Expect,i) :(M.temporaries.E[i,$i]) symbol("E$i")] for i = 1:length(expects.args)]...))
+    vlist = vcat(vlist,vcat([[Expr(:ref,:Expect,i) :(M.temporaries.E[i,$i])] for i = 1:length(expects.args)]...))
 
     return vlist
 end

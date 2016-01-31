@@ -44,7 +44,7 @@ export  ARSim,
 
 
 precompile(Model,(Expr,Expr,Expr,Expr,Expr,Expr))
-precompile(solve,(Model,Int,Float64))
+# precompile(solve,(Model,Int,Float64))
 
 
 end # module

@@ -104,8 +104,8 @@ function getindex(M::Model,x::Symbol)
     elseif in(x,M.state.names[1+M.state.nendo:end])
         id = findfirst(x.==M.state.names[1+M.state.nendo:end])
         return M.state.exog[id]
-    elseif in(x, keys(M.meta.parameters))
-        return M.meta.parameters[x]
+    elseif in(x, keys(M.parameters))
+        return M.parameters[x]
     end
 end
 
@@ -207,4 +207,16 @@ function nn(x::Array{Float64},grid::Array{Float64})
     id[i] = indmin(dist)
   end
   return id
+end
+
+
+function checkJ(M)
+    dJ = zeros(size(M.temporaries.J)...,2,length(M))
+    for i = 1:length(M)
+        M.J(M,i)
+        dJ[:,:,1,i] = copy(M.temporaries.J)
+        M.Js(M,i)
+        dJ[:,:,2,i] = copy(M.temporaries.J)
+    end
+    dJ
 end

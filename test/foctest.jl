@@ -1,16 +1,19 @@
-import EconModel:ModelMeta,StateVariables,PolicyVariables,subs!,addindex!,tchange!,getv,FutureVariables,AggregateVariables,AuxillaryVariables,buildE,buildF,buildJ,StaticVariables,genlist,ndgrid,StochasticProcess,getvlist,buildS,getslist,subs
+import EconModel:getslist,StateVariables,PolicyVariables,subs!,addindex!,FutureVariables,AuxillaryVariables,AggregateVariables,getexpectation,getvlist,StaticVariables,buildfunc,subs,buildJ,addpweights!,Temporaries
+
+import Calculus:differentiate,jacobian
+
+BF=QuadraticBF
 
 
-BF = QuadraticBF
-
-(foc,states,policy,vars,params)=(:[
+(foc,states,policy,vars,params)=
+(:[
 			W*h*η+R*b[-1]-c-b
-		    (b-blb)-R*β*Expect(λ[+1]*(b-blb))/λ
+		 	(b-blb)-R*β*Expect(λ[+1]*(b-blb))/λ
 ],:[
-    b       = (-3.5,10.,8)
+    b       = (-3.5,10.,7)
     η       = (1,0.9,0.1,2)
 ],:[
-	b       = (-3.5,10.,b,0.9)
+	b       = (-3.5,14.,b,0.95)
     c       = (0,1000,0.2)
 ],:[
     λ 	    = c^-σc
@@ -26,50 +29,44 @@ BF = QuadraticBF
     W 	    = 1.0
 ])
 
-endogenous = :[]
-exogenous = :[]
-agg  = :[]
-aux = :[]
-static = :[]
-
+endogenous,exogenous,agg,aux,static = :[],:[],:[],:[],:[]
 for i = 1:length(vars.args)
-    if isa(vars.args[i].args[2],Float64)
-        push!(aux.args,vars.args[i])
-    elseif isa(vars.args[i].args[2],Expr)
-        if (vars.args[i].args[2].args[1] == :∫)
-            if isa(vars.args[i].args[2].args[2],Expr)
-                sname = gensym(vars.args[i].args[1])
-                push!(static.args,:($sname = $(vars.args[i].args[2].args[2])))
-                push!(agg.args,Expr(:(=),vars.args[i].args[1],:($sname,$(vars.args[i].args[2].args[3]))))
-            else
-                push!(agg.args,Expr(:(=),vars.args[i].args[1],:($(vars.args[i].args[2].args[2]),$(vars.args[i].args[2].args[3]))))
-            end
-        else
-            push!(static.args,vars.args[i])
-        end
-    end
+	if isa(vars.args[i].args[2],Float64)
+		push!(aux.args,vars.args[i])
+	elseif isa(vars.args[i].args[2],Expr)
+		if (vars.args[i].args[2].args[1] == :∫)
+			if isa(vars.args[i].args[2].args[2],Expr)
+				sname = gensym(vars.args[i].args[1])
+				push!(static.args,:($sname = $(vars.args[i].args[2].args[2])))
+				push!(agg.args,Expr(:(=),vars.args[i].args[1],:($sname,$(vars.args[i].args[2].args[3]))))
+			else
+				push!(agg.args,Expr(:(=),vars.args[i].args[1],:($(vars.args[i].args[2].args[2]),$(vars.args[i].args[2].args[3]))))
+			end
+		else
+			push!(static.args,vars.args[i])
+		end
+	end
 end
 
 for i = 1:length(states.args)
-    if length(states.args[i].args[2].args) ==3 && isa(states.args[i].args[2].args[1],Real)
-        push!(endogenous.args,states.args[i])
-    else
-        push!(exogenous.args,states.args[i])
-    end
-    if states.args[i].head==:(:=)
-        if agg.args[1].head==:(=)
-            unshift!(agg.args,:(($(states.args[i].args[1]),)))
-        else
-            push!(agg.args[1].args,states.args[i].args[1])
-        end
-    end
+	if length(states.args[i].args[2].args) ==3 && isa(states.args[i].args[2].args[1],Real)
+		push!(endogenous.args,states.args[i])
+	else
+		push!(exogenous.args,states.args[i])
+	end
+	if states.args[i].head==:(:=)
+		if agg.args[1].head==:(=)
+			unshift!(agg.args,:(($(states.args[i].args[1]),)))
+		else
+			push!(agg.args[1].args,states.args[i].args[1])
+		end
+	end
 end
+
 params = Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args]))
 
 
-meta                    = ModelMeta(deepcopy(foc),deepcopy(params),deepcopy(endogenous),deepcopy(exogenous),deepcopy(policy),deepcopy(static),deepcopy(aux),deepcopy(agg),[])
 @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
-
 
 slist                   = getslist(static,params)
 State                   = StateVariables(endogenous,exogenous,BF)
@@ -77,71 +74,45 @@ Policy                  = PolicyVariables(policy,State)
 subs!(foc,params)
 addindex!(foc)
 subs!(foc,slist)
-
-
-
 Future                  = FutureVariables(foc,aux,State)
 Auxillary               = AuxillaryVariables(aux,State,Future)
 Aggregate               = AggregateVariables(agg,State,Future,Policy)
-vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate)
+foc,focslow,expects  	= getexpectation(foc)
+vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate,expects)
+Static = StaticVariables(slist,vlist,State)
 
 
-foc1 = deepcopy(foc)
-expe = deepcopy(Future.equations)
-[subs!(e,Dict(zip(vlist[:,1],vlist[:,2]))) for e in expe]
-expe1 = Expr[sum([(subs(e,:j=>j))*:(M.future.P[i,$j]) for j = 1:Future.nP ]) for e in expe ]
+Js  = jacobian(focslow,[Expr(:ref,v,0) for v in Policy.names])
 
-vlist1 = vlist[map(e->e.args[1],vlist[:,1]).==:Expect,:]
+# Remove derivatives of non policy future states
+ds1 = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in setdiff(State.names,Policy.names)] for p in (Policy.names)]...)
+ds2 = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in union(State.names,Policy.names)] for p in setdiff(Policy.names,State.names)]...)
+ds  = [Expr(:ref,e,1) for e in union(ds1,ds2)]
+Js = simplify(subs(Js,Dict(zip(ds,zeros(length(ds))))))
 
-subs!(foc1,Dict(zip(vlist1[:,1],expe1)))
-subs!(foc1,Dict(zip(vlist[:,2],vlist[:,1])))
-F2=eval(buildF(foc1,vlist))
-
-
-
-
-Efunc                   = buildE(Future,vlist)
-Ffunc                   = buildF(foc,vlist)
-j                       = buildJ(foc,vlist,Policy)
-Jarg                    = Expr(:call,gensym("J"),Expr(:(::),:M,:Model),Expr(:(::),:i,:Int64))
-Static                  = StaticVariables(slist,vlist,State)
-Sfunc                   = buildS(slist,vlist,State)
-[push!(meta.funcs,v) for v in [Efunc;Ffunc;j;Sfunc]]
-
-M =  Model(Aggregate,
-            Auxillary,
-            Future,
-            Policy,
-            State,
-            Static,
-            ones(length(State.G),Policy.n),
-            meta,
-            eval(Ffunc),
-            eval(Efunc),
-            eval(:(@fastmath $Jarg = $(j))),
-            x->x)
-
-ϕ = 0.4
-for iter = 1:1000
-
-
-	getfuture(M)
-	for ii = 1:4
-		M.E(M)
-		F2(M)
-		for i = 1:length(M.state.G)
-			x = vec(M.policy.X[i,:])-vec(M.J(M,i)\vec(M.error[i,:]))
-			@simd for j = 1:M.policy.n
-				@inbounds M.policy.X[i,j] *= ϕ
-				@inbounds M.policy.X[i,j] += (1-ϕ)*clamp(x[j],M.policy.lb[j],M.policy.ub[j])
-			end
-		end
-	end
-	if any(isnan(M.policy.X))
-		error("Policy function = NaN at iter $iter")
-	end
+dps = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in setdiff(Policy.names,State.names)] for p in intersect(State.names,Policy.names)]...)
+for i = 1:length(dps)
+	vlist = [vlist;[Expr(:ref,dps[i],1) :(M.temporaries.dP[i + (j-1)*length(M.state.G),$i])]]
 end
-M.static.sget(M)
-f(M) = (M.E(M);M.F(M))
-@benchmark f(M)
-@benchmark (F2(M))
+
+
+
+
+M =  Model(
+Aggregate,
+			Auxillary,
+			Future,
+			Policy,
+			State,
+			Static,
+			ones(length(State.G),Policy.n),
+			eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))))),
+			eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2]))))) )  )),
+			eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))))),
+			eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(  buildJ(vec(addpweights!(subs(jacobian(focslow,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP))) )  )),
+			eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
+			Temporaries(zeros(length(State.G),Future.n),zeros(Policy.n,Policy.n)))
+
+solveS(M,1000,.2)
+
+buildJ(vec(addpweights!(subs(jacobian(focslow,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP))) 
