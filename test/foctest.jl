@@ -18,8 +18,8 @@ BF=QuadraticBF
     c   = (0,5,0.4)
 ],:[
     λ 	= c^-σc
-    R   = 1-δ+(α)*ηz*A^(α-1)*H^(1-α)
-    W   = (1-α)*ηz*A^α*H^(-α)
+    R   = 1-δ+(α)*ηz*A[-1]^(α-1)*H^(1-α)
+    W   = (1-α)*ηz*A[-1]^α*H^(-α)
     A = ∫(b,40)
     H = ∫(η,0.9)
 ],:[
@@ -48,6 +48,8 @@ for i = 1:length(vars.args)
 		else
 			push!(static.args,vars.args[i])
 		end
+    else
+        warn("$(vars.args[i].args[1]) not succesfully parsed")
 	end
 end
 

@@ -47,6 +47,8 @@ function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=Qu
             else
                 push!(static.args,vars.args[i])
             end
+        else
+            warn("$(vars.args[i].args[1]) not succesfully parsed")
         end
     end
 
@@ -118,10 +120,15 @@ function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
                 Static,
                 ones(length(State.G),Policy.n),
                 params,
-                eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))) )),
-    			eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2])))))) )),
-    			eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))) )),
-    			eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP)))) )),
-    			eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
+                # eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))) )),
+    			# eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2])))))) )),
+    			# eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))) )),
+    			# eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP)))) )),
+    			# eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
+                eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,vlist),:(M.error))) )),
+    			eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),vlist)))) )),
+    			eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,vlist),Future.nP),:(M.error))) )),
+    			eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,vlist),Future.nP)))) )),
+    			eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,vlist),Future.nP),:(M.temporaries.E))))),
     			Temporaries(zeros(length(State.G),Future.n),zeros(Policy.n,Policy.n)))
 end

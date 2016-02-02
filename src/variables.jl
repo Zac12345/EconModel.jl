@@ -203,7 +203,7 @@ type StaticVariables
         for i = 1:length(snames)
             s = snames[i]
             targ = static[s]
-            targ = subs(targ,Dict(zip(vlist[:,1],vlist[:,2])))
+            targ = subs(targ,vlist)
             push!(bigS.args[2].args,:(M.static.X[i,$i] = $targ))
         end
 

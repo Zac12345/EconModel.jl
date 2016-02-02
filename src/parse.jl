@@ -156,23 +156,25 @@ function addpweights!(x,nP)
   return x
 end
 
+
 function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables,expects)
+    vlist = Dict()
 
-    vlist = vcat([[Expr(:ref,State.names[i],-1) Expr(:ref,:(M.state.X),:i,i)] for i = 1:State.nendo]...)
+    [push!(vlist,Expr(:ref,State.names[i],-1) => Expr(:ref,:(M.state.X),:i,i)) for i = 1:State.nendo]
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],0) Expr(:ref,:(M.state.X),:i,i)] for i = State.nendo+1:State.n]...))
+    [push!(vlist,Expr(:ref,State.names[i],0) => Expr(:ref,:(M.state.X),:i,i)) for i = State.nendo+1:State.n]
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,State.names[i],1) Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i)] for i = State.nendo+1:State.n]...))
+    [push!(vlist,Expr(:ref,State.names[i],1) => Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i)) for i = State.nendo+1:State.n]
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,Policy.names[i],0) Expr(:ref,:(M.policy.X),:i,i)] for i = 1:Policy.n]...))
+    [push!(vlist,Expr(:ref,Policy.names[i],0) => Expr(:ref,:(M.policy.X),:i,i)) for i = 1:Policy.n]
 
-    Auxillary.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Auxillary.names[i],0) Expr(:ref,:(M.auxillary.X),:i,i)] for i = 1:Auxillary.n]...)) : nothing
+    Auxillary.n>0 ? [push!(vlist,Expr(:ref,Auxillary.names[i],0) => Expr(:ref,:(M.auxillary.X),:i,i)) for i = 1:Auxillary.n]: nothing
 
-    Aggregate.n>0 ? vlist = vcat(vlist,vcat([[Expr(:ref,Aggregate.names[i],0) Expr(:ref,:(M.aggregate.X),:i,i)] for i = 1:Aggregate.n]...)) : nothing
+    Aggregate.n>0 ? [push!(vlist,Expr(:ref,Aggregate.names[i],-1) => Expr(:ref,:(M.aggregate.X),:i,i)) for i = 1:Aggregate.n] : nothing
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,Future.names[i],1) Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i)] for i = 1:length(Future.names)]...))
+    [push!(vlist,Expr(:ref,Future.names[i],1) => Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i)) for i = 1:length(Future.names)]
 
-    vlist = vcat(vlist,vcat([[Expr(:ref,:Expect,i) :(M.temporaries.E[i,$i])] for i = 1:length(expects.args)]...))
+    [push!(vlist,Expr(:ref,:Expect,i) => :(M.temporaries.E[i,$i])) for i = 1:length(expects.args)]
 
     return vlist
 end
