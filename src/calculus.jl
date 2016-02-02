@@ -1,12 +1,34 @@
 import Calculus:differentiate,jacobian,simplify,SymbolParameter,isminus
 
+
+function simplify(::SymbolParameter{:-}, args)
+	if length(args) == 2 && args[2]==0
+		return args[1]
+	end
+	# Remove any 0's in a subtraction
+    args = map(simplify, filter(x -> x != 0, args))
+    if length(args) == 0
+        return 0
+    # Special Case: simplify(:(x - x)) == 0
+    elseif length(args) == 2 && args[1] == args[2]
+        return 0
+    # Special Case: simplify(:(x - (-y))) == x + y
+    elseif length(args) == 2 && isminus(args[2])
+        return Expr(:call, :+, args[1], args[2].args[2])
+    else
+	        return Expr(:call, :-, args...)
+    end
+end
+
+
+
+
+
+
 function differentiate(ex::Expr,wrt::Expr)
 	if ex.head==:vect || ex.head ==:vcat
 		return differentiate(SymbolParameter(:vect), ex.args[1:end], wrt)
 	elseif ex.head == :ref
-		# if ex.args[2]==1 && ex.args[1]!=:Expect
-		# 	return Expr(:ref,symbol("δ"*string(ex.args[1])*"_$(wrt.args[1])"),1)
-		# end
         return ex==wrt ? 1 : 0
     elseif ex.head != :call
 		error("Unrecognized expression $ex")
@@ -48,6 +70,7 @@ differentiate(::SymbolParameter{:max}, args, wrt) = Expr(:if,:($(args[1])>$(args
 differentiate(::SymbolParameter{:min}, args, wrt) = Expr(:if,:($(args[1])<$(args[2])),differentiate(args[1],wrt),differentiate(args[2],wrt))
 
 
+
 function simplify(ex::Expr)
 	if in(ex.head,[:vcat,:row])
 		for i = 1:length(ex.args)
@@ -68,23 +91,4 @@ function simplify(ex::Expr)
         new_ex, ex = simplify(new_ex), new_ex
     end
     return new_ex
-end
-
-function simplify(::SymbolParameter{:-}, args)
-	if length(args) == 2 && args[2]==0
-		return args[1]
-	end
-	# Remove any 0's in a subtraction
-    args = map(simplify, filter(x -> x != 0, args))
-    if length(args) == 0
-        return 0
-    # Special Case: simplify(:(x - x)) == 0
-    elseif length(args) == 2 && args[1] == args[2]
-        return 0
-    # Special Case: simplify(:(x - (-y))) == x + y
-    elseif length(args) == 2 && isminus(args[2])
-        return Expr(:call, :+, args[1], args[2].args[2])
-    else
-	        return Expr(:call, :-, args...)
-    end
 end

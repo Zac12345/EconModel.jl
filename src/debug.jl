@@ -103,3 +103,40 @@ function debug(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::E
 			(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP)))) )),
 			(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))))
 end
+
+
+function debug(M::Model,n::Int,ϕ::Float64;crit::Float64=1e-6,Φ::Float64=0.0)
+    dp = 1.0
+    Merror = 1.0
+    for iter = 1:n
+        Merror =maximum(abs(M.error),1)
+        if (dp<1e-8 || maximum(Merror)<crit)
+            println(iter)
+            break
+        end
+        Pold = deepcopy(M.policy.X)
+        getfuture(M)
+        M.Fs(M)
+        for i = 1:length(M.state.G)
+            M.Js(M,i)
+            x = M.policy.X[i,:]-M.temporaries.J\M.error[i,:]
+            if any(map(isnan,x))
+                # any(map(isnan,M.temporaries.J)) ?
+                println("Policy : $(round(M.policy.X[i,:],3))")
+                println()
+                println("Jacob. : $(round(M.temporaries.J,3))")
+                error("nan at $i")
+            end
+
+            for j = 1:M.policy.n
+                @inbounds M.policy.X[i,j] *= ϕ
+                @inbounds M.policy.X[i,j] += (1-ϕ)*clamp(x[j],M.policy.lb[j],M.policy.ub[j])
+            end
+        end
+        mod(iter,20)==0 ? (dp = maximum(abs(Pold-M.policy.X))) : nothing
+
+        println(iter," ",round(log10(Merror)),'\t',1-sum(Merror.>crit)/(length(Merror)*length(M)))
+
+    end
+    M.static.sget(M)
+end

@@ -12,7 +12,7 @@ function getfuture(M::Model)
         end
     end
 
-    M.future.X[:] =  interp(M.future.state,M.state.G,hcat([M[n,0] for n ∈ M.future.names]...))[:]
+    M.future.X[:] =  M.state.G(hcat([M[n,0] for n ∈ M.future.names]...),M.future.state)[:]
 
     for j= 1:length(M.future.names)
         if in(M.future.names[j],M.policy.names)
@@ -46,7 +46,7 @@ function solve(M::Model,
 
         if (dp<1e-8 || maximum(Merror)<crit) && iter>mn
             upag!=-1 ? updateaggregate!(M) : nothing
-            disp!=-1 ? printerr(M,Merror,iter,crit) : nothing
+            println(iter)
             break
         end
 
@@ -86,7 +86,7 @@ function solveS(M::Model,
 
         if (dp<1e-8 || maximum(Merror)<crit) && iter>mn
             upag!=-1 ? updateaggregate!(M) : nothing
-            disp!=-1 ? printerr(M,Merror,iter,crit) : nothing
+            println(iter)
             break
         end
 
