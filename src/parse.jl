@@ -11,7 +11,6 @@ operators = [:-
             :∫
             :≤]
 
-
 function subs!(x::Expr,list::Dict)
     for i = 1:length(x.args)
         if in(x.args[i],keys(list))
@@ -45,7 +44,6 @@ function subs(x1::Expr,s::Pair)
 end
 
 
-
 function addindex!(x,ignore=operators)
     if typeof(x) == Expr
         if x.head == :ref
@@ -64,6 +62,8 @@ function addindex!(x,ignore=operators)
     return x
 end
 
+addindex(x,ignore=operators) = addindex!(deepcopy(x),ignore)
+
 function removeindex!(x)
     if isa(x,Expr)
         if x.head == :ref
@@ -77,10 +77,9 @@ function removeindex!(x)
     return x
 end
 
+removeindex(x,ignore=operators) = removeindex!(deepcopy(x),ignore)
 
-
-
-function tchange!(x::Expr,t::Int64,ignore=operators)
+function tchange!(x::Expr,t::Int,ignore=operators)
     if x.head == :ref
         if (x.args[2] == -1 && t==1) || (x.args[2] == 1 && t==-1)
             x = :($(x.args[1])[0])
@@ -97,118 +96,18 @@ function tchange!(x::Expr,t::Int64,ignore=operators)
     x
 end
 
-function getv(x,list,ignore=operators)
+tchange(x::Expr,t::Int,ignore=operators) = tchange!(deepcopy(x),t,ignore)
+
+
+function getv(x,list=Expr[],ignore=operators)
     if isa(x,Expr)
         if x.head==:ref
-            push!(list,(x.args[1],x.args[2]))
+            push!(list,x)
         else
             for i = 1:length(x.args)
                 list = getv(x.args[i],list,ignore)
             end
         end
-    elseif isa(x,Symbol) && !in(x,ignore)
-        push!(list,(x,0))
     end
-    return list
-end
-
-function getexpectation(foc)
-    @assert foc.head==:vcat || foc.head==:vect
-    list = :([])
-    for i = 1:length(foc.args)
-        foc.args[i],list= getexpectation(foc.args[i],list,length(list.args)+1)
-    end
-
-    foc1 = deepcopy(foc)
-    subs!(foc1,Dict(zip([Expr(:ref,:Expect,i) for i = 1:length(list.args)],list.args)))
-    foc,foc1,list
-end
-
-
-function getexpectation(x,list,ieq)
-    if isa(x,Expr)
-        if x.head==:call && x.args[1]==:Expect
-            push!(list.args,:ProbWeights*x.args[2])
-            x.head = :ref
-            x.args[2] = ieq
-        else
-            for i = 1:length(x.args)
-                x.args[i],list = getexpectation(x.args[i],list,ieq)
-            end
-        end
-    end
-    return x,list
-end
-
-addpweights(x,nP) = addpweights(deepcopy(x),nP)
-
-function addpweights!(x,nP)
-  if typeof(x) == Expr
-    if (x.head == :call) && (x.args[1] == :*) && (x.args[2]==:ProbWeights)
-      return Expr(:call,:+,[subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP]...)
-    #   return sum([subs(x.args[3],:j=>j)*:(M.future.P[i,$j]) for j = 1:nP])
-    else
-      for i = 1:length(x.args)
-        x.args[i]=addpweights!(x.args[i],nP)
-      end
-    end
-  end
-  return x
-end
-
-
-function getvlist(State::StateVariables,Policy::PolicyVariables,Future::FutureVariables,Auxillary::AuxillaryVariables,Aggregate::AggregateVariables,expects)
-    vlist = Dict()
-
-    [push!(vlist,Expr(:ref,State.names[i],-1) => Expr(:ref,:(M.state.X),:i,i)) for i = 1:State.nendo]
-
-    [push!(vlist,Expr(:ref,State.names[i],0) => Expr(:ref,:(M.state.X),:i,i)) for i = State.nendo+1:State.n]
-
-    [push!(vlist,Expr(:ref,State.names[i],1) => Expr(:ref,:(M.future.state),:(i+(j-1)*length(M.state.G)),i)) for i = State.nendo+1:State.n]
-
-    [push!(vlist,Expr(:ref,Policy.names[i],0) => Expr(:ref,:(M.policy.X),:i,i)) for i = 1:Policy.n]
-
-    Auxillary.n>0 ? [push!(vlist,Expr(:ref,Auxillary.names[i],0) => Expr(:ref,:(M.auxillary.X),:i,i)) for i = 1:Auxillary.n]: nothing
-
-    Aggregate.n>0 ? [push!(vlist,Expr(:ref,Aggregate.names[i],-1) => Expr(:ref,:(M.aggregate.X),:i,i)) for i = 1:Aggregate.n] : nothing
-
-    [push!(vlist,Expr(:ref,Future.names[i],1) => Expr(:ref,:(M.future.X),:(i+(j-1)*length(M.state.G)),i)) for i = 1:length(Future.names)]
-
-    [push!(vlist,Expr(:ref,:Expect,i) => :(M.temporaries.E[i,$i])) for i = 1:length(expects.args)]
-
-    return vlist
-end
-
-
-function getslist(static,plist)
-    subs!(static,plist)
-    addindex!(static)
-    for i = 1:length(static.args)
-        d=Dict(zip([x.args[1] for x in static.args[1:i]],[x.args[2] for x in static.args[1:i]]))
-        for j = i+1:length(static.args)
-            subs!(static.args[j],d)
-        end
-    end
-    for i = 1:length(static.args)
-        push!(static.args,tchange!(copy(static.args[i]),1))
-    end
-    static                  = Dict(zip([x.args[1] for x in static.args],[x.args[2] for x in static.args]))
-    return static
-end
-
-function buildfunc(ex::Expr,targ)
-    F = Expr(:for,:(i=1:length(M.state.G)),Expr(:block))
-    for i = 1:length(ex.args)
-        push!(F.args[2].args,:($targ[i,$i] = $(ex.args[i])))
-    end
-    return F
-end
-
-function buildJ(vJ)
-    ex = Expr(:block)
-    for i = 1:length(vJ.args)
-        push!(ex.args,:(M.temporaries.J[$i] = $(vJ.args[i])))
-    end
-    push!(ex.args,:(return))
-    return ex
+    return unique(list)
 end

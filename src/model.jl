@@ -1,134 +1,111 @@
-type Temporaries
-    E::Array{Float64,2}
+type Distribution
+    tG::Tuple{Vararg{Array{Float64}}}
+    td::Array{Float64}
+    T::SparseMatrixCSC
+    d::Array{Float64}
+end
+
+type temp
+    error::Array{Float64,2}
     J::Array{Float64,2}
+    foc::Expr
+    ploc::Vector{Int}
+    updateD::Function
+    f2::Expr
 end
 
 type Model
-    aggregate::AggregateVariables
-    auxillary::AuxillaryVariables
-    future::FutureVariables
-    policy::PolicyVariables
-    state::StateVariables
-    static::StaticVariables
-    error::Array{Float64,2}
-    parameters::Dict
+    G::NGrid
+    S::Array{Float64,2}
+    SP::Array{Float64,2}
+    X::Array{Float64,2}
+    XP::Array{Float64,2}
+    ProbWeights::Array{Float64,2}
+    variables::Vector{ModVar}
     F::Function
     J::Function
-    Fs::Function
-    Js::Function
-    E::Function
-    temporaries::Temporaries
+    distribution::Distribution
+    temp::temp
+end
+
+(M::Model)(s::Symbol,x::Array{Float64,2}) = M.G(M[s,0],x)
+
+function display(M::Model)
+    [println("\t",x) for x in M.temp.foc.args]
+    println("S: ",names(State(M.variables)))
+    println("P: ",names(Policy(M.variables)))
+end
+
+function Model(foc,states,policy,vars,params)
+    slist,G,S,SP,ProbWeights    = parsestate(states)
+    vlist,Dlist,dlist,plist     = parsevars(slist,policy,vars,params)
+    f1,f2,j2,expects = parsefoc(foc,vlist,dlist,plist)
+
+    vlist = vcat(vlist,Dlist)
+    vlist = vcat(vlist,Future(f2,slist,vlist))
+
+    X = hcat([((length(v.def.args)==4 && vtype(v)==Policy) ? S[:,find(slist,v.def.args[3])]*v.init : ones(length(G))*v.init[1]) for v in Future(vlist,false)]...)
+    XP = zeros(length(G)*size(ProbWeights,2),length(Future(vlist)))
+
+    tG = ndgrid(Vector{Float64}[s.val.x for s in slist]...)
+    td = zeros(size(tG[1]))+1/length(tG[1])
+    T   = spzeros(length(td),length(td))
+    d  = zeros(length(G))
+    D = Distribution(tG,td,T,d)
+
+
+    vlist = vcat(slist,vlist)
+
+    return Model(G,S,SP,X,XP,ProbWeights,vlist,
+        eval(:( $(gensym(:F))(M::Model) = @fastmath $(buildfunc(addpweights!(inserthardloc(f2,vlist),size(ProbWeights,2)),:(M.temp.error))))),
+        eval(:( $(gensym(:J))(M::Model,i::Int) = @fastmath $(buildJ(vec(addpweights!(inserthardloc(j2,vlist),size(ProbWeights,2))))))),
+        D,
+        temp(ones(length(G),length(Policy(vlist)))
+            ,zeros(length(Policy(vlist)),length(Policy(vlist)))
+            ,foc,
+            Int[findfirst(names(State(vlist,false)),p)+size(S,2) for p in names(Policy(vlist))],
+            eval(:($(gensym(:updateD))(M) = $(buildfunc(inserthardloc(addindex(subs(Expr(:vect,[v.def for v in Dlist]...),plist)),vlist),:(M.X),length(vlist)-length(slist)-length(Dlist)-length(Future(vlist)))))),
+            :( $(gensym(:F))(M) = @fastmath $(buildfunc(addpweights!(inserthardloc(f2,vlist),size(ProbWeights,2)),:(M.temp.error))))
+            )
+        )
 end
 
 
 
-
-function show(io::IO,M::Model)
-  println("State: $(M.state.names)")
-  println("Policy: $(M.policy.names)")
-end
-
-
-function Model(foc::Expr,states::Expr,policy::Expr,vars::Expr,params::Expr;BF=QuadraticBF)
-    endogenous,exogenous,agg,aux,static = :[],:[],:[],:[],:[]
-
-    for i = 1:length(vars.args)
-        if isa(vars.args[i].args[2],Float64)
-            push!(aux.args,vars.args[i])
-        elseif isa(vars.args[i].args[2],Expr)
-            if (vars.args[i].args[2].args[1] == :∫)
-                if isa(vars.args[i].args[2].args[2],Expr)
-                    sname = gensym(vars.args[i].args[1])
-                    push!(static.args,:($sname = $(vars.args[i].args[2].args[2])))
-                    push!(agg.args,Expr(:(=),vars.args[i].args[1],:($sname,$(vars.args[i].args[2].args[3]))))
-                else
-                    push!(agg.args,Expr(:(=),vars.args[i].args[1],:($(vars.args[i].args[2].args[2]),$(vars.args[i].args[2].args[3]))))
-                end
-            else
-                push!(static.args,vars.args[i])
-            end
-        else
-            warn("$(vars.args[i].args[1]) not succesfully parsed")
-        end
+function getindex(M::Model,x::Symbol)
+    if in(x,names(State(M.variables)))
+        return M.variables[findfirst(names(State(M.variables)),x)].val
+    else
+        error("$x not found")
     end
-
-    for i = 1:length(states.args)
-        if length(states.args[i].args[2].args) ==3 && isa(states.args[i].args[2].args[1],Real)
-            push!(endogenous.args,states.args[i])
-        else
-            push!(exogenous.args,states.args[i])
-        end
-        if states.args[i].head==:(:=)
-            if agg.args[1].head==:(=)
-                unshift!(agg.args,:(($(states.args[i].args[1]),)))
-            else
-                push!(agg.args[1].args,states.args[i].args[1])
-            end
-        end
-    end
-
-    Model(foc,
-            endogenous,
-            exogenous,
-            policy,
-            static,
-            Dict{Symbol,Float64}(zip([x.args[1] for x in params.args],[x.args[2] for x in params.args])),
-            aux,
-            agg,BF)
 end
 
+function getindex(M::Model,x::Symbol,t::Int)
+    ns = length(State(M.variables))
+    for i ∈ 1:length((M.variables))
+        if  t==-1 && vtype(M.variables[i])==Endogenous && M.variables[i].name==x
+            return M.S[:,i]
+        elseif vtype(M.variables[i])==Aggregate && M.variables[i].name==x && M.variables[i].val.target[2]==t
+            return M.X[:,i-ns]
+        elseif  t==0 && vtype(M.variables[i]) <: Stochastic && M.variables[i].name==x
+           return  M.S[:,i]
+        elseif  t==0 && vtype(M.variables[i]) <: Union{Policy,Static}  && M.variables[i].name==x
+           return  M.X[:,i-ns]
+        end
+   end
+end
 
-
-function Model(foc::Expr,endogenous::Expr,exogenous::Expr,policy::Expr,static::Expr,params::Dict,aux::Expr,agg::Expr,BF)
-
-    @assert length(foc.args) == length(policy.args) "equations doesn't equal numer of policy variables"
-
-    slist                   = getslist(static,params)
-    State                   = StateVariables(endogenous,exogenous,BF)
-    Policy                  = PolicyVariables(policy,State)
-    subs!(foc,params)
-    addindex!(foc)
-    subs!(foc,slist)
-    Future                  = FutureVariables(foc,aux,State)
-    Auxillary               = AuxillaryVariables(aux,State,Future)
-    Aggregate               = AggregateVariables(agg,State,Future,Policy)
-    foc,focslow,expects  	= getexpectation(foc)
-    vlist                   = getvlist(State,Policy,Future,Auxillary,Aggregate,expects)
-    Static = StaticVariables(slist,vlist,State)
-
-
-    Js  = jacobian(focslow,[Expr(:ref,v,0) for v in Policy.names])
-
-    # Remove derivatives of non policy future states
-    # ds1 = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in setdiff(State.names,Policy.names)] for p in (Policy.names)]...)
-    # ds2 = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in union(State.names,Policy.names)] for p in setdiff(Policy.names,State.names)]...)
-    # ds  = [Expr(:ref,e,1) for e in union(ds1,ds2)]
-    # Js = simplify(subs(Js,Dict(zip(ds,zeros(length(ds))))))
-    #
-    # dps = vcat([[symbol("δ"*string(v)*"_"*string(p)) for v in setdiff(Policy.names,State.names)] for p in intersect(State.names,Policy.names)]...)
-    # for i = 1:length(dps)
-    #     vlist = [vlist;[Expr(:ref,dps[i],1) :(M.temporaries.dP[i + (j-1)*length(M.state.G),$i])]]
-    # end
-
-
-
-    return Model(Aggregate,
-                Auxillary,
-                Future,
-                Policy,
-                State,
-                Static,
-                ones(length(State.G),Policy.n),
-                params,
-                # eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,Dict(zip(vlist[:,1],vlist[:,2]))),:(M.error))) )),
-    			# eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),Dict(zip(vlist[:,1],vlist[:,2])))))) )),
-    			# eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.error))) )),
-    			# eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP)))) )),
-    			# eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,Dict(zip(vlist[:,1],vlist[:,2]))),Future.nP),:(M.temporaries.E))))),
-                eval(:($(gensym(:F))(M) = @fastmath $(buildfunc(subs(foc,vlist),:(M.error))) )),
-    			eval(:($(gensym(:J))(M,i) = @fastmath $(buildJ(vec(subs(jacobian(foc,[Expr(:ref,v,0) for v in Policy.names]),vlist)))) )),
-    			eval(:($(gensym(:Fslow))(M) = @fastmath $(buildfunc(addpweights!(subs(focslow,vlist),Future.nP),:(M.error))) )),
-    			eval(:( $(gensym(:Jslow))(M,i) = @fastmath $(buildJ(vec(addpweights!(subs(Js,vlist),Future.nP)))) )),
-    			eval(:($(gensym(:E))(M) = @fastmath  $(buildfunc(addpweights!(subs(expects,vlist),Future.nP),:(M.temporaries.E))))),
-    			Temporaries(zeros(length(State.G),Future.n),zeros(Policy.n,Policy.n)))
+function setindex!(M::Model,X::Vector{Float64},x::Symbol,t::Int)
+    ns = length(State(M.variables))
+    for i ∈ 1:length((M.variables))
+        if  t==-1 && vtype(M.variables[i])==Endogenous && M.variables[i].name==x
+            return M.S[:,i] = X
+        elseif vtype(M.variables[i])==Aggregate && M.variables[i].name==x && M.variables[i].val.target[2]==t
+            return M.X[:,i-ns] = X
+        elseif  t==0 && vtype(M.variables[i]) <: Stochastic && M.variables[i].name==x
+           return  M.S[:,i] = X
+        elseif  t==0 && vtype(M.variables[i]) <: Union{Policy,Static}  && M.variables[i].name==x
+           return  M.X[:,i-ns] = X
+        end
+   end
 end
