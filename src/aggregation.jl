@@ -175,7 +175,7 @@ function updateAggregates(M::Model,ϕ=1.0)
     else
         for s ∈ Aggregate(M.variables)
             M.X[:,findfirst(State(M.variables,false),s)] *= (1-ϕ)
-            M.X[:,findfirst(State(M.variables,false),s)] = ϕ*∫(M,s.val.target[1],s.val.target[2])
+            M.X[:,findfirst(State(M.variables,false),s)] += ϕ*∫(M,s.val.target[1],s.val.target[2])
         end
     end
 end

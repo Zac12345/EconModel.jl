@@ -27,6 +27,7 @@ export Model,
 	   updateA,
 	   ∫,
 	   ARSim,
-	   MarkovSim!
+	   MarkovSim!,
+	   ProblemParse
 
 end # module

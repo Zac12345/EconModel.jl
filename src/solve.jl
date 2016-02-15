@@ -16,19 +16,10 @@ function updateXP(M::Model)
     futureloc = Int[v.val.targXid for v in Future(M.variables)]
     M.XP[:,:] = M.G(M.X[:,futureloc],M.SP)
     for i in 1:length(futureloc)
-        clamp!(M.XP[:,i],Future(M.variables)[i].bounds[1],Future(M.variables)[i].bounds[2])
+        clamp!(M.XP[:,i],Future(M.variables)[futureloc[i]].bounds[1],Future(M.variables)[futureloc[i]].bounds[2])
     end
 end
 
-# function updateXP(M::Model)
-#     M.XP[:,M.temp.futureloc] = M.G(M.X[:,M.temp.futureloc],M.SP)
-#     cnt = 0
-#     for i in M.temp.futureloc
-#         if vtype(M.variables[i+size(M.S,2)])==Policy
-#             clamp!(M.XP[:,i],M.variables[i+size(M.S,2)].bounds[1],M.variables[i+size(M.S,2)].bounds[2])
-#         end
-#     end
-# end
 
 function updatePolicy(M::Model,ϕ=0.8)
     M.F(M)
@@ -44,21 +35,41 @@ function updatePolicy(M::Model,ϕ=0.8)
     end
 end
 
+function forcebounds(M)
+    ns = size(M.S,2)
+    pid = (M.temp.ploc[1]:M.temp.ploc[end])-ns
+    n = length(pid)
+    for j = 1:n
+        lb,ub = M.variables[ns+j].bounds[1],M.variables[ns+j].bounds[2]
+        for i = 1:length(M.G)
+            if M.X[i,j] < lb
+                M.X[i,j] = lb
+            elseif M.X[i,j] > ub
+                M.X[i,j] = ub
+            end
+        end
+    end
+end
+
+
 
 function solve(M::Model,n::Int=1000,ϕ::Float64=0.8;disp::Int=10000,crit=1e-6)
-    (MaxError = maximum(abs(M.temp.error),1))
-
+    MaxError = maximum(abs(M.temp.error),1)
+    SError = sum(abs(M.temp.error).>crit*5,1)/length(M.G)
+    M.temp.updateD(M)
     updateSP(M)
     updateXP(M)
     updatePolicy(M)
+    forcebounds(M)
 
     for iter = 2:n
-        mod(iter,20)==0 && (MaxError = maximum(abs(M.temp.error),1))
+        mod(iter,20)==0 && (MaxError = maximum(abs(M.temp.error),1);SError = sum(abs(M.temp.error).>crit*5,1)/length(M.G))
         updateSP(M)
         updateXP(M)
         updatePolicy(M,ϕ)
-        mod(iter,disp)==0 && println(round(log10(MaxError),2))
-        iter>min(n,5)  && maximum(MaxError)<crit && (print(iter);break)
+        forcebounds(M)
+        mod(iter,disp)==0 && println(round(log10(MaxError),2),"  ",round(SError,2))
+        iter>min(n,5)  && (maximum(MaxError)<crit || all(SError.<0.05)) && (print(iter);break)
     end
     M.temp.updateD(M)
 end

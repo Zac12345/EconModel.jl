@@ -53,7 +53,6 @@ function Model(foc,states,policy,vars,params)
     d  = zeros(length(G))
     D = Distribution(tG,td,T,d)
 
-
     vlist = vcat(slist,vlist)
 
     return Model(G,S,SP,X,XP,ProbWeights,vlist,

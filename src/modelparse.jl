@@ -136,12 +136,8 @@ function (::Type{Aggregate})(ex::Expr,slist::Vector{ModVar},dlist::Vector{ModVar
         end
 
     elseif isa(ex.args[2].args[2],Expr)
-        dex = :($(string(ex.args[1])*"targ") = $(ex.args[2].args[2]))
-        # t = maximum([x[2] for x in unique(getv(addindex(dex.args[2]),[]))])
-        t = -1
-        for e in getv(dex.args[2])
-            t=max(t,e.args[2])
-        end
+        dex = :($(Symbol(string(ex.args[1])*"targ")) = $(ex.args[2].args[2]))
+        t = maximum([x.args[2] for x in unique(getv(addindex(dex.args[2])))])
         push!(dlist,Dependant(dex))
 
         return ModVar{Aggregate,Agg}(
@@ -302,4 +298,52 @@ function (::Type{Dependant})(vlist::Vector{ModVar},plist::Dict{Symbol,Float64})
 		push!(dlist,tchange(p[1],1)=>tchange(p[2],1))
 	end
 	return dlist
+end
+
+
+
+
+module ProblemParse
+using Calculus
+import Base:Expr,parse
+import EconModel:subs!,operators,addindex!,tchange
+
+
+
+function parse(O_::Expr,C_::Expr,controls_::Expr,params::Dict)
+
+    O = deepcopy(O_)
+    C = deepcopy(C_)
+    controls = addindex!(deepcopy(controls_))
+    for v in (O,C)
+        subs!(v,params)
+        addindex!(v)
+    end
+    CP = tchange(C,1)
+
+    focs = :[]
+    for i = 1:length(C.args)
+        c=C.args[i]
+        cp=CP.args[i]
+        if c.head==:comparison && c.args[2]==:≤
+            C.args[i] = c.args[1]==0 ? c.args[3]+0 : c.args[3]-c.args[1]
+            CP.args[i] = cp.args[1]==0 ? cp.args[3]+0 : cp.args[3]-cp.args[1]
+            push!(focs.args,:(($(symbol("λ$(i)"))^2+($(c.args[3]-c.args[1]))^2)^(1/2)-$(symbol("λ$(i)"))-($(c.args[3]-c.args[1]))))
+        else
+            push!(focs.args,c)
+        end
+    end
+
+    for x in controls.args
+        focO = differentiate(O,x)
+        focC = +([Expr(:ref,symbol("λ$i"),0)*differentiate(C.args[i],x) for i = 1:length(C.args)]...)
+        focCP = simplify(+([Expr(:ref,symbol("λ$(i)"),1)*differentiate(CP.args[i],x) for i = 1:length(C.args)]...))
+        (focC!=0 && focCP!=0) ? (focC=focC*x;focCP=focCP*x) : nothing
+        focCP = focCP==0 ? focCP : params[:β]*Expr(:call,:Expect,focCP)
+        push!(focs.args,simplify(focO+focC+focCP))
+    end
+
+    return focs
+end
+
 end

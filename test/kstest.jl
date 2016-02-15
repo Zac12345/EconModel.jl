@@ -1,4 +1,3 @@
-
 M=Model(:[
     W*η+R*b[-1]-b-c
     (b)-β*Expect(R[+1]*λ[+1]*(b))/λ
@@ -22,10 +21,9 @@ M=Model(:[
     σc  = 2.5
     ϕh  = 1.6
     σh  = 2.0
-    σz  = 0.01
 ])
-solveks(M)
 
+@profile solve(M,400,0.5)
 
 function solveks(M)
     solve(M,400,0.5)
@@ -42,8 +40,9 @@ function solveks(M)
         i+=1
     solve(M,1,disp = 50)
     updateA(M)
-    # mod(i,10)==0 && println(round(∫(M,:A),3),"  ",round(log10(maximum(abs(M.temp.error),1)),2))
+    mod(i,10)==0 && println(round(∫(M,:A),3),"  ",round(log10(maximum(abs(M.temp.error),1)),2))
     end
+
     println(maximum(abs(M.temp.error)))
     println("∫b : ",round(∫(M,:b),3))
 end
